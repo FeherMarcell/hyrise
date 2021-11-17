@@ -103,7 +103,10 @@ class GddSegment : public AbstractEncodedSegment {
 };
 
 // GDDTODO: list all supported data types, like in LZ4Segment
-EXPLICITLY_DECLARE_DATA_TYPES(GddSegment);
-//extern template class GddSegment<int32_t>;
+//EXPLICITLY_DECLARE_DATA_TYPES(GddSegment);
+extern template class GddSegment<int32_t>;
+extern template class GddSegment<int64_t>;
+extern template class GddSegment<float>;
+extern template class GddSegment<double>;
 
 }  // namespace opossum

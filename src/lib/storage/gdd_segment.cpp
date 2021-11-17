@@ -90,11 +90,11 @@ std::optional<CompressedVectorType> GddSegment<T, U>::compressed_vector_type() c
 }
 
 
-EXPLICITLY_INSTANTIATE_DATA_TYPES(GddSegment);
 /*
-template class GddSegment<int32_t>;
+EXPLICITLY_INSTANTIATE_DATA_TYPES(GddSegment);
+*/
 template class GddSegment<int64_t>;
+template class GddSegment<int32_t>;
 template class GddSegment<float>;
 template class GddSegment<double>;
-*/
 }  // namespace opossum
