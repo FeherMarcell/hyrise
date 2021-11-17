@@ -166,6 +166,13 @@ std::shared_ptr<AbstractSegment> BinaryParser::_import_segment(std::ifstream& fi
       } else {
         Fail("Unsupported data type for FOR encoding");
       }
+    case EncodingType::GDD:
+      if constexpr (encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>,
+                                                hana::type_c<ColumnDataType>)) {
+        return _import_gdd_segment<ColumnDataType>(file, row_count);
+      } else {
+        Fail("Unsupported data type for FOR encoding");
+      }
     case EncodingType::LZ4:
       return _import_lz4_segment<ColumnDataType>(file, row_count);
   }
@@ -238,6 +245,24 @@ std::shared_ptr<FrameOfReferenceSegment<T>> BinaryParser::_import_frame_of_refer
   auto offset_values = _import_offset_value_vector(file, row_count, compressed_vector_type_id);
 
   return std::make_shared<FrameOfReferenceSegment<T>>(block_minima, null_values, std::move(offset_values));
+}
+
+template <typename T>
+std::shared_ptr<GddSegment<T>> BinaryParser::_import_gdd_segment(std::ifstream& file, ChunkOffset row_count) {
+  // GDDTODO: write me
+  const auto compressed_vector_type_id = _read_value<CompressedVectorTypeID>(file);
+  const auto block_count = _read_value<uint32_t>(file);
+  const auto block_minima = pmr_vector<T>(_read_values<T>(file, block_count));
+
+  const auto null_values_stored = _read_value<BoolAsByteType>(file);
+  std::optional<pmr_vector<bool>> null_values;
+  if (null_values_stored) {
+    null_values = pmr_vector<bool>(_read_values<bool>(file, row_count));
+  }
+
+  auto offset_values = _import_offset_value_vector(file, row_count, compressed_vector_type_id);
+
+  return std::make_shared<GddSegment<T>>(...);
 }
 
 template <typename T>

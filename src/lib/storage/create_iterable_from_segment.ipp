@@ -2,6 +2,7 @@
 
 #include "storage/dictionary_segment/dictionary_segment_iterable.hpp"
 #include "storage/frame_of_reference_segment/frame_of_reference_segment_iterable.hpp"
+#include "storage/gdd_segment/gdd_segment_iterable.hpp"
 #include "storage/lz4_segment/lz4_segment_iterable.hpp"
 #include "storage/run_length_segment/run_length_segment_iterable.hpp"
 #include "storage/segment_iterables/any_segment_iterable.hpp"
@@ -73,6 +74,22 @@ auto create_iterable_from_segment(const FrameOfReferenceSegment<T, Enabled>& seg
   }
 #endif
 }
+
+template <typename T, typename Enabled, bool EraseSegmentType>
+auto create_iterable_from_segment(const GddSegment<T, Enabled>& segment) {
+#ifdef HYRISE_ERASE_GDD
+  PerformanceWarning("GddSegmentIterable erased by compile-time setting");
+  return AnySegmentIterable<T>(GddSegmentIterable<T>(segment));
+#else
+  if constexpr (EraseSegmentType) {
+    return create_any_segment_iterable<T>(segment);
+  } else {
+    return GddSegmentIterable<T>{segment};
+  }
+#endif
+}
+
+
 
 template <typename T, bool EraseSegmentType>
 auto create_iterable_from_segment(const LZ4Segment<T>& segment) {

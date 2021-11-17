@@ -191,6 +191,17 @@ class BinaryWriter {
   template <typename T>
   static void _write_segment(const FrameOfReferenceSegment<T>& frame_of_reference_segment, bool column_is_nullable,
                              std::ofstream& ofstream);
+  
+
+  /**
+   * GddSegments are dumped with the following layout:
+   * 
+   * GDDTODO: Write me
+   *
+   */
+  template <typename T>
+  static void _write_segment(const GddSegment<T>& gdd_segment, bool column_is_nullable,
+                             std::ofstream& ofstream);
 
   /**
    * LZ4Segments are dumped with the following layout:

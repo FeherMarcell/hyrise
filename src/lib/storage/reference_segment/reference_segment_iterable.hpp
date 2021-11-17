@@ -10,6 +10,7 @@
 #include "storage/dictionary_segment.hpp"
 #include "storage/fixed_string_dictionary_segment.hpp"
 #include "storage/frame_of_reference_segment.hpp"
+#include "storage/gdd_segment.hpp"
 #include "storage/reference_segment.hpp"
 #include "storage/run_length_segment.hpp"
 #include "storage/segment_accessor.hpp"
@@ -69,6 +70,16 @@ class ReferenceSegmentIterable : public SegmentIterable<ReferenceSegmentIterable
 #ifdef HYRISE_ERASE_FRAMEOFREFERENCE
           if constexpr (std::is_same_v<T, int32_t>) {
             if constexpr (std::is_same_v<SegmentType, FrameOfReferenceSegment<T>>) return;
+          }
+#endif
+
+// GDDTODO: this could be done nice
+#ifdef HYRISE_ERASE_GDD
+          if constexpr (std::is_same_v<SegmentType, GddSegment<T>>){
+            if constexpr (std::is_same_v<T, int32_t>) return  
+            if constexpr (std::is_same_v<T, int64_t>) return  
+            if constexpr (std::is_same_v<T, float>) return  
+            if constexpr (std::is_same_v<T, double>) return  
           }
 #endif
 

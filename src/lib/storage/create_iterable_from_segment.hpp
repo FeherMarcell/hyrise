@@ -19,6 +19,9 @@ class FixedStringDictionarySegment;
 template <typename T, typename>
 class FrameOfReferenceSegment;
 
+template <typename T, typename>
+class GddSegment;
+
 template <typename T>
 class LZ4Segment;
 
@@ -62,6 +65,16 @@ auto create_iterable_from_segment(const FrameOfReferenceSegment<T, Enabled>& seg
 // Fix template deduction so that we can call `create_iterable_from_segment<T, false>` on FrameOfReferenceSegments
 template <typename T, bool EraseSegmentType, typename Enabled>
 auto create_iterable_from_segment(const FrameOfReferenceSegment<T, Enabled>& segment) {
+  return create_iterable_from_segment<T, Enabled, EraseSegmentType>(segment);
+}
+
+// GDD:
+template <typename T, typename Enabled, bool EraseSegmentType = HYRISE_DEBUG>
+auto create_iterable_from_segment(const GddSegment<T, Enabled>& segment);
+
+// Fix template deduction so that we can call `create_iterable_from_segment<T, false>` on GddSegments
+template <typename T, bool EraseSegmentType, typename Enabled>
+auto create_iterable_from_segment(const GddSegment<T, Enabled>& segment) {
   return create_iterable_from_segment<T, Enabled, EraseSegmentType>(segment);
 }
 

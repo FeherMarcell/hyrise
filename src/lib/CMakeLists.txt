@@ -451,9 +451,13 @@ set(
     storage/fixed_string_dictionary_segment/fixed_string_vector.hpp
     storage/fixed_string_dictionary_segment/fixed_string_vector_iterator.hpp
     storage/frame_of_reference_segment.cpp
-    storage/frame_of_reference_segment.hpp
+    storage/frame_of_reference_segment.cpp
     storage/frame_of_reference_segment/frame_of_reference_encoder.hpp
     storage/frame_of_reference_segment/frame_of_reference_segment_iterable.hpp
+    storage/gdd_segment.hpp
+    storage/gdd_segment.cpp
+    storage/gdd_segment/gdd_encoder.hpp
+    storage/gdd_segment/gdd_segment_iterable.hpp
     storage/index/abstract_index.cpp
     storage/index/abstract_index.hpp
     storage/index/adaptive_radix_tree/adaptive_radix_tree_index.cpp

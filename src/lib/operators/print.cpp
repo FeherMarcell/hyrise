@@ -230,6 +230,10 @@ std::string Print::_segment_type(const std::shared_ptr<AbstractSegment>& segment
         segment_type += "FoR";
         break;
       }
+      case EncodingType::Gdd: {
+        segment_type += "GDD";
+        break;
+      }
       case EncodingType::LZ4: {
         segment_type += "LZ4";
         break;

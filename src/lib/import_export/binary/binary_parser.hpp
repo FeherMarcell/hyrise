@@ -12,6 +12,7 @@
 #include "storage/encoding_type.hpp"
 #include "storage/fixed_string_dictionary_segment.hpp"
 #include "storage/frame_of_reference_segment.hpp"
+#include "storage/gdd_segment.hpp"
 #include "storage/lz4_segment.hpp"
 #include "storage/run_length_segment.hpp"
 #include "storage/table.hpp"
@@ -84,6 +85,9 @@ class BinaryParser {
 
   template <typename T>
   static std::shared_ptr<FrameOfReferenceSegment<T>> _import_frame_of_reference_segment(std::ifstream& file,
+                                                                                        ChunkOffset row_count);
+    template <typename T>
+  static std::shared_ptr<GddSegment<T>> _import_frame_of_reference_segment(std::ifstream& file,
                                                                                         ChunkOffset row_count);
   template <typename T>
   static std::shared_ptr<LZ4Segment<T>> _import_lz4_segment(std::ifstream& file, ChunkOffset row_count);
