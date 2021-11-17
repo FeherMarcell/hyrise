@@ -19,7 +19,7 @@ namespace opossum {
 // GDDTODO: write me
 class GddEncoder : public SegmentEncoder<GddEncoder> {
  public:
-  static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::Gdd>;
+  static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::GDD>;
   static constexpr auto _uses_vector_compression = true;  // see base_segment_encoder.hpp for details
 
   template <typename T>

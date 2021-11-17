@@ -281,7 +281,7 @@ void BinaryWriter::_write_segment(const FrameOfReferenceSegment<int32_t>& frame_
 template <>
 void BinaryWriter::_write_segment(const GddSegment<int32_t>& frame_of_reference_segment,
                                   bool column_is_nullable, std::ofstream& ofstream) {
-  export_value(ofstream, EncodingType::GddSegment);
+  export_value(ofstream, EncodingType::GDD);
 
   // GDDTODO: write me
 

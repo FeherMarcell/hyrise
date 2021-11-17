@@ -87,8 +87,8 @@ class BinaryParser {
   static std::shared_ptr<FrameOfReferenceSegment<T>> _import_frame_of_reference_segment(std::ifstream& file,
                                                                                         ChunkOffset row_count);
     template <typename T>
-  static std::shared_ptr<GddSegment<T>> _import_frame_of_reference_segment(std::ifstream& file,
-                                                                                        ChunkOffset row_count);
+  static std::shared_ptr<GddSegment<T>> _import_gdd_segment(std::ifstream& file, ChunkOffset row_count);
+  
   template <typename T>
   static std::shared_ptr<LZ4Segment<T>> _import_lz4_segment(std::ifstream& file, ChunkOffset row_count);
 
