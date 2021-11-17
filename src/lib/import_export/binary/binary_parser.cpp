@@ -262,7 +262,7 @@ std::shared_ptr<GddSegment<T>> BinaryParser::_import_gdd_segment(std::ifstream& 
 
   auto offset_values = _import_offset_value_vector(file, row_count, compressed_vector_type_id);
 
-  return std::make_shared<GddSegment<T>>(...);
+  return std::make_shared<GddSegment<T>>(block_minima, null_values, std::move(offset_values));
 }
 
 template <typename T>
