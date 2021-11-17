@@ -89,8 +89,12 @@ std::optional<CompressedVectorType> GddSegment<T, U>::compressed_vector_type() c
   return _offset_values->type();
 }
 
-template class GddSegment<int32_t>;
-// int64_t disabled for now, as vector compression cannot handle 64 bit values - also in reference_segment_iterable.hpp
-// template class GddSegment<int64_t>;
 
+EXPLICITLY_INSTANTIATE_DATA_TYPES(GddSegment);
+/*
+template class GddSegment<int32_t>;
+template class GddSegment<int64_t>;
+template class GddSegment<float>;
+template class GddSegment<double>;
+*/
 }  // namespace opossum
