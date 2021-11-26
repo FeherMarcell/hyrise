@@ -25,10 +25,7 @@ namespace opossum {
  * types even if they are never actually needed.
  * 
  */
-template <
-  typename T, 
-  typename=std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>
->
+template <typename T, typename=std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
 class GddSegment : public AbstractEncodedSegment {
  public:
   explicit GddSegment(const std::shared_ptr<const pmr_vector<T>>& values,
