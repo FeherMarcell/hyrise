@@ -538,12 +538,17 @@ int Console::_load_table(const std::string& args) {
 
   if (arguments.empty() || arguments.size() > 3) {
     out("Usage:\n");
-    out("  load FILEPATH [TABLENAME [ENCODING]]\n");
+    out("  load FILEPATH [TABLENAME [ENCODING [CHUNK_SIZE]]]\n");
     return ReturnCode::Error;
   }
 
   const auto filepath = std::filesystem::path{arguments.at(0)};
   const auto tablename = arguments.size() >= 2 ? arguments.at(1) : std::string{filepath.stem()};
+  const std::string encoding = arguments.size() == 3 ? arguments.at(2) : "Unencoded";
+  auto chunk_size = Chunk::DEFAULT_SIZE;
+  if (arguments.size() > 3) {
+    chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(3));
+  }
 
   out("Loading " + std::string(filepath) + " into table \"" + tablename + "\"\n");
 
@@ -551,15 +556,16 @@ int Console::_load_table(const std::string& args) {
     out("Table \"" + tablename + "\" already existed. Replacing it.\n");
   }
 
+
   try {
-    auto importer = std::make_shared<Import>(filepath, tablename, Chunk::DEFAULT_SIZE);
+    auto importer = std::make_shared<Import>(filepath, tablename, chunk_size);
     importer->execute();
   } catch (const std::exception& exception) {
     out("Error: Exception thrown while importing table:\n  " + std::string(exception.what()) + "\n");
     return ReturnCode::Error;
   }
 
-  const std::string encoding = arguments.size() == 3 ? arguments.at(2) : "Unencoded";
+  
 
   const auto encoding_type = encoding_type_to_string.right.find(encoding);
   if (encoding_type == encoding_type_to_string.right.end()) {
