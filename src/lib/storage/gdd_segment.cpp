@@ -14,8 +14,7 @@ GddSegment<T>::GddSegment(const std::shared_ptr<const pmr_vector<T>>& values,
                           const std::shared_ptr<const pmr_vector<bool>>& null_values)
     : AbstractEncodedSegment(data_type_from_type<T>()),
       _values{values},
-      _null_values{null_values} 
-    { }
+      _null_values{null_values} {}
 
 template <typename T>
 std::shared_ptr<const pmr_vector<T>> GddSegment<T>::values() const {
