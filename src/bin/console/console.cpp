@@ -426,7 +426,7 @@ int Console::_help(const std::string&) {
   out("  generate_tpcc NUM_WAREHOUSES [CHUNK_SIZE] - Generate all TPC-C tables\n");
   out("  generate_tpch SCALE_FACTOR [CHUNK_SIZE] - Generate all TPC-H tables\n");
   out("  generate_tpcds SCALE_FACTOR [CHUNK_SIZE] - Generate all TPC-DS tables\n");
-  out("  load FILEPATH [TABLENAME [ENCODING]]    - Load table from disk specified by filepath FILEPATH, store it with name TABLENAME\n");  // NOLINT
+  out("  load FILEPATH [TABLENAME [ENCODING [CHUNK_SIZE]]]    - Load table from disk specified by filepath FILEPATH, store it with name TABLENAME\n");  // NOLINT
   out("                                               The import type is chosen by the type of FILEPATH.\n");
   out("                                                 Supported types: '.bin', '.csv', '.tbl'\n");
   out("                                               If no table name is specified, the filename without extension is used\n");  // NOLINT
@@ -557,7 +557,7 @@ int Console::_load_table(const std::string& args) {
   if (arguments.size() > 3) {
     chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(3));
   }
-  out("Chunk size: " + std::string(chunk_size) + " elements");
+  out("Chunk size: " + std::to_string(chunk_size) + " elements");
 
   try {
     auto importer = std::make_shared<Import>(filepath, tablename, chunk_size);
