@@ -25,38 +25,38 @@ set(
     
     lib/memory/segments_using_allocators_test.cpp
     
-    #lib/operators/aggregate_sort_test.cpp
-    #lib/operators/aggregate_test.cpp
-    #lib/operators/alias_operator_test.cpp
-    #lib/operators/change_meta_table_test.cpp
-    #lib/operators/delete_test.cpp
-    #lib/operators/difference_test.cpp
-    #lib/operators/export_test.cpp
-    #lib/operators/get_table_test.cpp
-    #lib/operators/import_test.cpp
-    #lib/operators/index_scan_test.cpp
-    #lib/operators/insert_test.cpp
-    #lib/operators/join_hash/join_hash_steps_test.cpp
-    #lib/operators/join_hash/join_hash_traits_test.cpp
-    #lib/operators/join_hash/join_hash_types_test.cpp
-    #lib/operators/join_hash_test.cpp
-    #lib/operators/join_index_test.cpp
-    #lib/operators/join_nested_loop_test.cpp
-    #lib/operators/join_sort_merge_test.cpp
-    #lib/operators/join_test_runner.cpp
-    #lib/operators/join_verification_test.cpp
-    #lib/operators/limit_test.cpp
+    lib/operators/aggregate_sort_test.cpp
+    lib/operators/aggregate_test.cpp
+    lib/operators/alias_operator_test.cpp
+    lib/operators/change_meta_table_test.cpp
+    lib/operators/delete_test.cpp
+    lib/operators/difference_test.cpp
+    lib/operators/export_test.cpp
+    lib/operators/get_table_test.cpp
+    lib/operators/import_test.cpp
+    lib/operators/index_scan_test.cpp
+    lib/operators/insert_test.cpp
+    lib/operators/join_hash/join_hash_steps_test.cpp
+    lib/operators/join_hash/join_hash_traits_test.cpp
+    lib/operators/join_hash/join_hash_types_test.cpp
+    lib/operators/join_hash_test.cpp
+    lib/operators/join_index_test.cpp
+    lib/operators/join_nested_loop_test.cpp
+    lib/operators/join_sort_merge_test.cpp
+    lib/operators/join_test_runner.cpp
+    lib/operators/join_verification_test.cpp
+    lib/operators/limit_test.cpp
     
-    #lib/operators/table_scan_between_test.cpp
-    #lib/operators/table_scan_sorted_segment_search_test.cpp
-    #lib/operators/table_scan_string_test.cpp
-    #lib/operators/table_scan_test.cpp
-    #lib/operators/typed_operator_base_test.hpp
-    #lib/operators/union_all_test.cpp
-    #lib/operators/union_positions_test.cpp
-    #lib/operators/update_test.cpp
-    #lib/operators/validate_test.cpp
-    #lib/operators/validate_visibility_test.cpp
+    lib/operators/table_scan_between_test.cpp
+    lib/operators/table_scan_sorted_segment_search_test.cpp
+    lib/operators/table_scan_string_test.cpp
+    lib/operators/table_scan_test.cpp
+    lib/operators/typed_operator_base_test.hpp
+    lib/operators/union_all_test.cpp
+    lib/operators/union_positions_test.cpp
+    lib/operators/update_test.cpp
+    lib/operators/validate_test.cpp
+    lib/operators/validate_visibility_test.cpp
     
     lib/storage/any_segment_iterable_test.cpp
     lib/storage/chunk_encoder_test.cpp

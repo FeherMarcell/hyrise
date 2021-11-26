@@ -1,14 +1,14 @@
 #pragma once
 
-#include <type_traits>
+#include <utility>
+#include <vector>
 
-#include "storage/abstract_segment.hpp"
-#include "storage/gdd_segment.hpp"
+#include "storage/pos_lists/abstract_pos_list.hpp"
 #include "storage/segment_iterables.hpp"
-#include "storage/vector_compression/resolve_compressed_vector_type.hpp"
+#include "storage/value_segment.hpp"
 
 namespace opossum {
-// GDDTODO: write me
+
 template <typename T>
 class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentIterable<T>> {
  public:
@@ -19,37 +19,36 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
     _segment.access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment.size();
-    resolve_compressed_vector_type(_segment.offset_values(), [&](const auto& offset_values) {
-      using OffsetValueDecompressor = std::decay_t<decltype(offset_values.create_decompressor())>;
-
-      auto begin = Iterator<OffsetValueDecompressor>{&_segment.block_minima(), &_segment.null_values(),
-                                                     offset_values.create_decompressor(), ChunkOffset{0}};
-
-      auto end = Iterator<OffsetValueDecompressor>{&_segment.block_minima(), &_segment.null_values(),
-                                                   offset_values.create_decompressor(),
-                                                   static_cast<ChunkOffset>(_segment.size())};
-
+    if (_segment.is_nullable()) {
+      auto begin = Iterator{_segment.values().cbegin(), _segment.values().cbegin(), _segment.null_values().cbegin()};
+      auto end = Iterator{_segment.values().cbegin(), _segment.values().cend(), _segment.null_values().cend()};
       functor(begin, end);
-    });
+    } else {
+      auto begin = NonNullIterator{_segment.values().cbegin(), _segment.values().cbegin()};
+      auto end = NonNullIterator{_segment.values().cbegin(), _segment.values().cend()};
+      functor(begin, end);
+    }
   }
 
   template <typename Functor, typename PosListType>
   void _on_with_iterators(const std::shared_ptr<PosListType>& position_filter, const Functor& functor) const {
     _segment.access_counter[SegmentAccessCounter::access_type(*position_filter)] += position_filter->size();
-    resolve_compressed_vector_type(_segment.offset_values(), [&](const auto& offset_values) {
-      using OffsetValueDecompressor = std::decay_t<decltype(offset_values.create_decompressor())>;
-      using PosListIteratorType = std::decay_t<decltype(position_filter->cbegin())>;
 
-      auto begin = PointAccessIterator<OffsetValueDecompressor, PosListIteratorType>{
-          &_segment.block_minima(), &_segment.null_values(), offset_values.create_decompressor(),
-          position_filter->cbegin(), position_filter->cbegin()};
+    using PosListIteratorType = std::decay_t<decltype(position_filter->cbegin())>;
 
-      auto end = PointAccessIterator<OffsetValueDecompressor, PosListIteratorType>{
-          &_segment.block_minima(), &_segment.null_values(), offset_values.create_decompressor(),
-          position_filter->cbegin(), position_filter->cend()};
-
+    if (_segment.is_nullable()) {
+      auto begin = PointAccessIterator<PosListIteratorType>{_segment.values().cbegin(), _segment.null_values().cbegin(),
+                                                            position_filter->cbegin(), position_filter->cbegin()};
+      auto end = PointAccessIterator<PosListIteratorType>{_segment.values().cbegin(), _segment.null_values().cbegin(),
+                                                          position_filter->cbegin(), position_filter->cend()};
       functor(begin, end);
-    });
+    } else {
+      auto begin = NonNullPointAccessIterator<PosListIteratorType>{
+          _segment.values().cbegin(), position_filter->cbegin(), position_filter->cbegin()};
+      auto end = NonNullPointAccessIterator<PosListIteratorType>{_segment.values().cbegin(), position_filter->cbegin(),
+                                                                 position_filter->cend()};
+      functor(begin, end);
+    }
   }
 
   size_t _on_size() const { return _segment.size(); }
@@ -58,92 +57,153 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
   const GddSegment<T>& _segment;
 
  private:
-  template <typename OffsetValueDecompressor>
-  class Iterator : public AbstractSegmentIterator<Iterator<OffsetValueDecompressor>, SegmentPosition<T>> {
+  class NonNullIterator : public AbstractSegmentIterator<NonNullIterator, NonNullSegmentPosition<T>> {
    public:
     using ValueType = T;
     using IterableType = GddSegmentIterable<T>;
+    using ValueIterator = typename pmr_vector<T>::const_iterator;
 
    public:
-    explicit Iterator(const pmr_vector<T>* block_minima, const std::optional<pmr_vector<bool>>* null_values,
-                      OffsetValueDecompressor offset_value_decompressor, ChunkOffset chunk_offset)
-        : _block_minima{block_minima},
-          _null_values{null_values},
-          _offset_value_decompressor{std::move(offset_value_decompressor)},
-          _chunk_offset{chunk_offset} {}
+    explicit NonNullIterator(ValueIterator begin_value_it, ValueIterator value_it)
+        : _value_it{std::move(value_it)},
+          _chunk_offset{static_cast<ChunkOffset>(std::distance(begin_value_it, _value_it))} {}
 
    private:
     friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
 
-    void increment() { ++_chunk_offset; }
-
-    void decrement() { --_chunk_offset; }
-
-    void advance(std::ptrdiff_t n) { _chunk_offset += n; }
-
-    bool equal(const Iterator& other) const { return _chunk_offset == other._chunk_offset; }
-
-    std::ptrdiff_t distance_to(const Iterator& other) const {
-      return static_cast<std::ptrdiff_t>(other._chunk_offset) - _chunk_offset;
+    void increment() {
+      ++_value_it;
+      ++_chunk_offset;
     }
 
-    SegmentPosition<T> dereference() const {
-      static constexpr auto block_size = GddSegment<T>::block_size;
-
-      const auto is_null = *_null_values ? (**_null_values)[_chunk_offset] : false;
-      const auto block_minimum = (*_block_minima)[_chunk_offset / block_size];
-      const auto offset_value = _offset_value_decompressor.get(_chunk_offset);
-      const auto value = static_cast<T>(offset_value) + block_minimum;
-
-      return SegmentPosition<T>{value, is_null, _chunk_offset};
+    void decrement() {
+      --_value_it;
+      --_chunk_offset;
     }
+
+    void advance(std::ptrdiff_t n) {
+      _value_it += n;
+      _chunk_offset += n;
+    }
+
+    bool equal(const NonNullIterator& other) const { return _value_it == other._value_it; }
+
+    std::ptrdiff_t distance_to(const NonNullIterator& other) const { return other._value_it - _value_it; }
+
+    NonNullSegmentPosition<T> dereference() const { return NonNullSegmentPosition<T>{*_value_it, _chunk_offset}; }
 
    private:
-    const pmr_vector<T>* _block_minima;
-    const std::optional<pmr_vector<bool>>* _null_values;
-    mutable OffsetValueDecompressor _offset_value_decompressor;
+    ValueIterator _value_it;
     ChunkOffset _chunk_offset;
   };
 
-  template <typename OffsetValueDecompressor, typename PosListIteratorType>
-  class PointAccessIterator
-      : public AbstractPointAccessSegmentIterator<PointAccessIterator<OffsetValueDecompressor, PosListIteratorType>,
-                                                  SegmentPosition<T>, PosListIteratorType> {
+  class Iterator : public AbstractSegmentIterator<Iterator, SegmentPosition<T>> {
    public:
     using ValueType = T;
     using IterableType = GddSegmentIterable<T>;
+    using ValueIterator = typename pmr_vector<T>::const_iterator;
+    using NullValueIterator = pmr_vector<bool>::const_iterator;
 
-    PointAccessIterator(const pmr_vector<T>* block_minima, const std::optional<pmr_vector<bool>>* null_values,
-                        OffsetValueDecompressor offset_value_decompressor, PosListIteratorType position_filter_begin,
-                        PosListIteratorType position_filter_it)
-        : AbstractPointAccessSegmentIterator<PointAccessIterator<OffsetValueDecompressor, PosListIteratorType>,
-                                             SegmentPosition<T>, PosListIteratorType>{std::move(position_filter_begin),
-                                                                                      std::move(position_filter_it)},
-          _block_minima{block_minima},
-          _null_values{null_values},
-          _offset_value_decompressor{std::move(offset_value_decompressor)} {}
+   public:
+    explicit Iterator(ValueIterator begin_value_it, ValueIterator value_it, NullValueIterator null_value_it)
+        : _value_it(std::move(value_it)),
+          _null_value_it{std::move(null_value_it)},
+          _chunk_offset{static_cast<ChunkOffset>(std::distance(begin_value_it, _value_it))} {}
+
+   private:
+    friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
+
+    void increment() {
+      ++_value_it;
+      ++_null_value_it;
+      ++_chunk_offset;
+    }
+
+    void decrement() {
+      --_value_it;
+      --_null_value_it;
+      --_chunk_offset;
+    }
+
+    void advance(std::ptrdiff_t n) {
+      _value_it += n;
+      _null_value_it += n;
+      _chunk_offset += n;
+    }
+
+    bool equal(const Iterator& other) const { return _value_it == other._value_it; }
+
+    std::ptrdiff_t distance_to(const Iterator& other) const { return other._value_it - _value_it; }
+
+    SegmentPosition<T> dereference() const { return SegmentPosition<T>{*_value_it, *_null_value_it, _chunk_offset}; }
+
+   private:
+    ValueIterator _value_it;
+    NullValueIterator _null_value_it;
+    ChunkOffset _chunk_offset;
+  };
+
+  template <typename PosListIteratorType>
+  class NonNullPointAccessIterator
+      : public AbstractPointAccessSegmentIterator<NonNullPointAccessIterator<PosListIteratorType>, SegmentPosition<T>,
+                                                  PosListIteratorType> {
+   public:
+    using ValueType = T;
+    using IterableType = GddSegmentIterable<T>;
+    using ValueVectorIterator = typename pmr_vector<T>::const_iterator;
+
+   public:
+    explicit NonNullPointAccessIterator(ValueVectorIterator values_begin_it, PosListIteratorType position_filter_begin,
+                                        PosListIteratorType position_filter_it)
+        : AbstractPointAccessSegmentIterator<NonNullPointAccessIterator, SegmentPosition<T>,
+                                             PosListIteratorType>{std::move(position_filter_begin),
+                                                                  std::move(position_filter_it)},
+          _values_begin_it{std::move(values_begin_it)} {}
 
    private:
     friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
 
     SegmentPosition<T> dereference() const {
-      static constexpr auto block_size = GddSegment<T>::block_size;
-
       const auto& chunk_offsets = this->chunk_offsets();
-      const auto current_offset = chunk_offsets.offset_in_referenced_chunk;
-
-      const auto is_null = *_null_values ? (**_null_values)[current_offset] : false;
-      const auto block_minimum = (*_block_minima)[current_offset / block_size];
-      const auto offset_value = _offset_value_decompressor.get(current_offset);
-      const auto value = static_cast<T>(offset_value) + block_minimum;
-
-      return SegmentPosition<T>{value, is_null, chunk_offsets.offset_in_poslist};
+      return SegmentPosition<T>{*(_values_begin_it + chunk_offsets.offset_in_referenced_chunk), false,
+                                chunk_offsets.offset_in_poslist};
     }
 
    private:
-    const pmr_vector<T>* _block_minima;
-    const std::optional<pmr_vector<bool>>* _null_values;
-    mutable OffsetValueDecompressor _offset_value_decompressor;
+    ValueVectorIterator _values_begin_it;
+  };
+
+  template <typename PosListIteratorType>
+  class PointAccessIterator : public AbstractPointAccessSegmentIterator<PointAccessIterator<PosListIteratorType>,
+                                                                        SegmentPosition<T>, PosListIteratorType> {
+   public:
+    using ValueType = T;
+    using IterableType = GddSegmentIterable<T>;
+    using ValueVectorIterator = typename pmr_vector<T>::const_iterator;
+    using NullValueVectorIterator = typename pmr_vector<bool>::const_iterator;
+
+   public:
+    explicit PointAccessIterator(ValueVectorIterator values_begin_it, NullValueVectorIterator null_values_begin_it,
+                                 PosListIteratorType position_filter_begin, PosListIteratorType position_filter_it)
+        : AbstractPointAccessSegmentIterator<PointAccessIterator, SegmentPosition<T>,
+                                             PosListIteratorType>{std::move(position_filter_begin),
+                                                                  std::move(position_filter_it)},
+          _values_begin_it{std::move(values_begin_it)},
+          _null_values_begin_it{std::move(null_values_begin_it)} {}
+
+   private:
+    friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
+
+    SegmentPosition<T> dereference() const {
+      const auto& chunk_offsets = this->chunk_offsets();
+      return SegmentPosition<T>{*(_values_begin_it + chunk_offsets.offset_in_referenced_chunk),
+                                *(_null_values_begin_it + chunk_offsets.offset_in_referenced_chunk),
+                                chunk_offsets.offset_in_poslist};
+    }
+
+   private:
+    ValueVectorIterator _values_begin_it;
+    NullValueVectorIterator _null_values_begin_it;
   };
 };
 

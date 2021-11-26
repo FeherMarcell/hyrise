@@ -9,9 +9,12 @@
 #include <boost/hana/type.hpp>
 
 #include "abstract_encoded_segment.hpp"
+#include "storage/vector_compression/base_compressed_vector.hpp"
 #include "types.hpp"
 
 namespace opossum {
+
+class BaseCompressedVector;
 
 /**
  * @brief Segment implementing Generalized Deduplication encoding
@@ -23,19 +26,18 @@ namespace opossum {
  * GddSegment<T> with T other than the supported data types (uint32_t, uint64_t). 
  * Otherwise, the compiler might instantiate GddSegment with other
  * types even if they are never actually needed.
- * 
  */
-template <
-  typename T, 
-  typename=std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>
->
+template <typename T, typename = std::enable_if_t<encoding_supports_data_type(
+                          enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
 class GddSegment : public AbstractEncodedSegment {
  public:
-  explicit GddSegment(const std::shared_ptr<const pmr_vector<T>>& values,
-                      const std::shared_ptr<const pmr_vector<bool>>& null_values);
+  
+  explicit GddSegment(pmr_vector<uint32_t> bases, std::optional<pmr_vector<bool>> null_values,
+                                   std::unique_ptr<const BaseCompressedVector> offset_values);
 
-  std::shared_ptr<const pmr_vector<T>> values() const;
-  std::shared_ptr<const pmr_vector<bool>> null_values() const;
+  const pmr_vector<T>& block_minima() const;
+  const std::optional<pmr_vector<bool>>& null_values() const;
+  const BaseCompressedVector& offset_values() const;
 
   /**
    * @defgroup AbstractSegment interface
@@ -46,22 +48,19 @@ class GddSegment : public AbstractEncodedSegment {
 
   std::optional<T> get_typed_value(const ChunkOffset chunk_offset) const {
     // performance critical - not in cpp to help with inlining
-    //const auto end_position_it = std::lower_bound(_end_positions->cbegin(), _end_positions->cend(), chunk_offset);
-    //const auto index = std::distance(_end_positions->cbegin(), end_position_it);
-
-    const auto is_null = (*_null_values)[chunk_offset];
-    if (is_null) {
+    if (_null_values && (*_null_values)[chunk_offset]) {
       return std::nullopt;
     }
-    // TODO decompress and return value
-    return (*_values)[chunk_offset];
+    const auto minimum = _block_minima[chunk_offset / block_size];
+    const auto value = static_cast<T>(_decompressor->get(chunk_offset)) + minimum;
+    return value;
   }
 
   ChunkOffset size() const final;
 
   std::shared_ptr<AbstractSegment> copy_using_allocator(const PolymorphicAllocator<size_t>& alloc) const final;
 
-  size_t memory_usage(const MemoryUsageCalculationMode mode) const final;
+  size_t memory_usage(const MemoryUsageCalculationMode) const final;
 
   /**@}*/
 
@@ -75,11 +74,13 @@ class GddSegment : public AbstractEncodedSegment {
 
   /**@}*/
 
- protected:
-  const std::shared_ptr<const pmr_vector<T>> _values;
-  const std::shared_ptr<const pmr_vector<bool>> _null_values;
+ private:
+
+  const std::shared_ptr<const pmr_vector<uint32_t>> _bases;
+  const std::shared_ptr<const pmr_vector<uint8_t>> _deviations;
 };
 
+// GDDTODO: list all supported data types, like in LZ4Segment
 //EXPLICITLY_DECLARE_DATA_TYPES(GddSegment);
 extern template class GddSegment<int32_t>;
 extern template class GddSegment<int64_t>;
