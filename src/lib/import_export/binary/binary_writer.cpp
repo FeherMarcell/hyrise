@@ -285,6 +285,7 @@ void BinaryWriter::_write_segment(const GddSegment<T>& gdd_segment,
 
   // GDDTODO: write me
 
+  /*
   // Write attribute vector compression id
   const auto compressed_vector_type_id = _compressed_vector_type_id<int32_t>(gdd_segment);
   export_value(ofstream, compressed_vector_type_id);
@@ -303,6 +304,7 @@ void BinaryWriter::_write_segment(const GddSegment<T>& gdd_segment,
   // Write offset values
   _export_compressed_vector(ofstream, *gdd_segment.compressed_vector_type(),
                             gdd_segment.offset_values());
+                      */
 }
 
 template <typename T>
