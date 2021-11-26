@@ -557,7 +557,7 @@ int Console::_load_table(const std::string& args) {
   if (arguments.size() > 3) {
     chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(3));
   }
-  out("Chunk size: " + std::to_string(chunk_size) + " elements");
+  out("Chunk size: " + std::to_string(chunk_size) + " elements\n");
 
   try {
     auto importer = std::make_shared<Import>(filepath, tablename, chunk_size);
@@ -568,7 +568,7 @@ int Console::_load_table(const std::string& args) {
   }
 
   
-  const std::string encoding = arguments.size() == 3 ? arguments.at(2) : "Unencoded";
+  const std::string encoding = arguments.size() > 2 ? arguments.at(2) : "Unencoded";
   const auto encoding_type = encoding_type_to_string.right.find(encoding);
   if (encoding_type == encoding_type_to_string.right.end()) {
     const auto encoding_options = boost::algorithm::join(
