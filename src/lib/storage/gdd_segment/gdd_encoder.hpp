@@ -14,17 +14,22 @@
 #include "types.hpp"
 #include "utils/enum_constant.hpp"
 
+#include <iostream>
+
 namespace opossum {
+using namespace std;
 
 // GDDTODO: write me
 class GddEncoder : public SegmentEncoder<GddEncoder> {
  public:
   static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::GDD>;
-  static constexpr auto _uses_vector_compression = true;  // see base_segment_encoder.hpp for details
+  static constexpr auto _uses_vector_compression = false;  // see base_segment_encoder.hpp for details
 
   template <typename T>
   std::shared_ptr<AbstractEncodedSegment> _on_encode(const AnySegmentIterable<T> segment_iterable,
                                                      const PolymorphicAllocator<T>& allocator) {
+
+                                                      
     static constexpr auto block_size = GddSegment<T>::block_size;
 
     // Ceiling of integer division
@@ -46,6 +51,9 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
 
     segment_iterable.with_iterators([&](auto segment_it, auto segment_end) {
       const auto size = std::distance(segment_it, segment_end);
+
+      cout << "Segment size: " << size << endl;
+
       const auto num_blocks = div_ceil(size, block_size);
 
       block_minima.reserve(num_blocks);
