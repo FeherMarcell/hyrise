@@ -29,10 +29,6 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
         return;
       }
 
-      // Init is_current_null such that it does not equal the first entry
-      auto current_value = T{};
-      auto is_current_null = !it->is_null();
-
       for (; it != end; ++it) {
         auto segment_value = *it;
         
