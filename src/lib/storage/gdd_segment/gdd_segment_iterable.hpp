@@ -21,7 +21,7 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
     using ValueIterator = typename std::vector<T>::const_iterator;
 
     _segment.access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment.size();
-    if (!_segment.null_values().empty()) {
+    if (!_segment.null_values()->empty()) {
       auto begin = Iterator{_segment.values().cbegin(), _segment.values().cbegin(), _segment.null_values().cbegin()};
       auto end = Iterator{_segment.values().cbegin(), _segment.values().cend(), _segment.null_values().cend()};
       functor(begin, end);
@@ -43,7 +43,7 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
 
     using PosListIteratorType = std::decay_t<decltype(position_filter->cbegin())>;
 
-    if (!_segment.null_values().empty()) {
+    if (!_segment.null_values()->empty()) {
       auto begin = PointAccessIterator<PosListIteratorType>{_segment.values().cbegin(), _segment.null_values().cbegin(),
                                                             position_filter->cbegin(), position_filter->cbegin()};
       auto end = PointAccessIterator<PosListIteratorType>{_segment.values().cbegin(), _segment.null_values().cbegin(),
