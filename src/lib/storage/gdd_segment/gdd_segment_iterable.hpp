@@ -18,7 +18,6 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
 
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
-    using ValueIterator = typename std::vector<T>::const_iterator;
 
     _segment.access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment.size();
     if (!_segment.null_values()->empty()) {
