@@ -36,8 +36,8 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
       for (; it != end; ++it) {
         auto segment_value = *it;
         
-        values.push_back(segment_value.value());
-        null_values.push_back(segment_value.is_null());
+        values->push_back(segment_value.value());
+        null_values->push_back(segment_value.is_null());
       }
     });
 
