@@ -1,11 +1,11 @@
 #pragma once
 
-#include <utility>
-#include <vector>
+#include <type_traits>
 
-#include "storage/pos_lists/abstract_pos_list.hpp"
 #include "storage/segment_iterables.hpp"
-#include "storage/value_segment.hpp"
+
+#include "storage/gdd_segment.hpp"
+#include "storage/vector_compression/resolve_compressed_vector_type.hpp"
 
 namespace opossum {
 
@@ -18,8 +18,10 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
 
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
+    using ValueIterator = typename std::vector<T>::const_iterator;
+
     _segment.access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment.size();
-    if (_segment.is_nullable()) {
+    if (!_segment.null_values().empty()) {
       auto begin = Iterator{_segment.values().cbegin(), _segment.values().cbegin(), _segment.null_values().cbegin()};
       auto end = Iterator{_segment.values().cbegin(), _segment.values().cend(), _segment.null_values().cend()};
       functor(begin, end);
@@ -30,13 +32,18 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
     }
   }
 
+  /**
+   * For the point access, we first retrieve the values for all chunk offsets in the position list and then save
+   * the decompressed values in a vector. The first value in that vector (index 0) is the value for the chunk offset
+   * at index 0 in the position list.
+   */
   template <typename Functor, typename PosListType>
   void _on_with_iterators(const std::shared_ptr<PosListType>& position_filter, const Functor& functor) const {
     _segment.access_counter[SegmentAccessCounter::access_type(*position_filter)] += position_filter->size();
 
     using PosListIteratorType = std::decay_t<decltype(position_filter->cbegin())>;
 
-    if (_segment.is_nullable()) {
+    if (!_segment.null_values().empty()) {
       auto begin = PointAccessIterator<PosListIteratorType>{_segment.values().cbegin(), _segment.null_values().cbegin(),
                                                             position_filter->cbegin(), position_filter->cbegin()};
       auto end = PointAccessIterator<PosListIteratorType>{_segment.values().cbegin(), _segment.null_values().cbegin(),
@@ -50,8 +57,6 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
       functor(begin, end);
     }
   }
-
-  size_t _on_size() const { return _segment.size(); }
 
  private:
   const GddSegment<T>& _segment;
