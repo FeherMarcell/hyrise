@@ -58,6 +58,8 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
     }
   }
 
+  size_t _on_size() const { return _segment.size(); }
+
  private:
   const GddSegment<T>& _segment;
 
