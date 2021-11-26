@@ -39,7 +39,7 @@ AllTypeVariant GddSegment<T, U>::operator[](const ChunkOffset chunk_offset) cons
 
 template <typename T, typename U>
 ChunkOffset GddSegment<T, U>::size() const {
-  return values.size();
+  return values->size();
 }
 
 template <typename T, typename U>
@@ -56,7 +56,7 @@ std::shared_ptr<AbstractSegment> GddSegment<T, U>::copy_using_allocator(
 
 template <typename T, typename U>
 size_t GddSegment<T, U>::memory_usage(const MemoryUsageCalculationMode mode) const {
-  return values.size() * sizeof(typename decltype(_values)::element_type::value_type) + null_values.size();
+  return values->size() * sizeof(typename decltype(_values)::element_type::value_type) + null_values->size();
 }
 
 template <typename T, typename U>
