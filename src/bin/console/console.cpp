@@ -536,7 +536,7 @@ int Console::_generate_tpcds(const std::string& args) {
 int Console::_load_table(const std::string& args) {
   std::vector<std::string> arguments = trim_and_split(args);
 
-  if (arguments.empty() || arguments.size() > 3) {
+  if (arguments.empty() || arguments.size() > 4) {
     out("Usage:\n");
     out("  load FILEPATH [TABLENAME [ENCODING [CHUNK_SIZE]]]\n");
     return ReturnCode::Error;
@@ -544,11 +544,8 @@ int Console::_load_table(const std::string& args) {
 
   const auto filepath = std::filesystem::path{arguments.at(0)};
   const auto tablename = arguments.size() >= 2 ? arguments.at(1) : std::string{filepath.stem()};
-  const std::string encoding = arguments.size() == 3 ? arguments.at(2) : "Unencoded";
-  auto chunk_size = Chunk::DEFAULT_SIZE;
-  if (arguments.size() > 3) {
-    chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(3));
-  }
+  
+  
 
   out("Loading " + std::string(filepath) + " into table \"" + tablename + "\"\n");
 
@@ -556,6 +553,11 @@ int Console::_load_table(const std::string& args) {
     out("Table \"" + tablename + "\" already existed. Replacing it.\n");
   }
 
+  auto chunk_size = Chunk::DEFAULT_SIZE;
+  if (arguments.size() > 3) {
+    chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(3));
+  }
+  out("Chunk size: " + std::string(chunk_size) + " elements");
 
   try {
     auto importer = std::make_shared<Import>(filepath, tablename, chunk_size);
@@ -566,7 +568,7 @@ int Console::_load_table(const std::string& args) {
   }
 
   
-
+  const std::string encoding = arguments.size() == 3 ? arguments.at(2) : "Unencoded";
   const auto encoding_type = encoding_type_to_string.right.find(encoding);
   if (encoding_type == encoding_type_to_string.right.end()) {
     const auto encoding_options = boost::algorithm::join(
