@@ -14,6 +14,8 @@
 #include "resolve_type.hpp"
 #include "type_comparison.hpp"
 
+#include <iostream>
+
 namespace opossum {
 
 ColumnVsValueTableScanImpl::ColumnVsValueTableScanImpl(const std::shared_ptr<const Table>& in_table,
@@ -113,6 +115,7 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
   auto iterable = create_iterable_from_attribute_vector(segment);
 
   if (_value_matches_all(segment, search_value_id)) {
+    std::cout << "All values in Segment are match" << std::endl;
     if (_column_is_nullable) {
       // We still have to check for NULLs
       iterable.with_iterators(position_filter, [&](auto it, auto end) {
@@ -143,11 +146,13 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
   }
 
   if (_value_matches_none(segment, search_value_id)) {
+    std::cout << "None of the values in Segment are match" << std::endl;
     ++num_chunks_with_early_out;
     return;
   }
 
   _with_operator_for_dict_segment_scan([&](auto predicate_comparator) {
+    std::cout << "Scan dict segment" << std::endl;
     auto comparator = [predicate_comparator, search_value_id](const auto& position) {
       return predicate_comparator(position.value(), search_value_id);
     };

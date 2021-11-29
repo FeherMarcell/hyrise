@@ -14,6 +14,8 @@
 #include "types.hpp"
 #include "utils/performance_warning.hpp"
 
+#include <iostream>
+
 namespace opossum {
 
 /**
@@ -58,6 +60,7 @@ class AbstractTableScanImpl {
     // expensive than the scan itself, so we disable SIMD for these, too.
     if constexpr (std::is_same_v<RightIterator, std::false_type> &&
                   !std::is_same_v<std::decay_t<decltype(left_it->value())>, pmr_string>) {
+      std::cout << "SIMD scan" << std::endl;
       _simd_scan_with_iterators<CheckForNull>(func, left_it, left_end, chunk_id, matches_out, right_it);
     }
 
