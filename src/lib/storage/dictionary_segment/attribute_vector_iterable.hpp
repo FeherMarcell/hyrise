@@ -5,6 +5,8 @@
 #include "storage/segment_iterables.hpp"
 #include "storage/vector_compression/resolve_compressed_vector_type.hpp"
 
+#include <iostream>
+
 namespace opossum {
 
 class AttributeVectorIterable : public PointAccessibleSegmentIterable<AttributeVectorIterable> {
@@ -14,7 +16,9 @@ class AttributeVectorIterable : public PointAccessibleSegmentIterable<AttributeV
   explicit AttributeVectorIterable(const BaseDictionarySegment& segment, const ValueID null_value_id)
       : _attribute_vector{*segment.attribute_vector()},
         _null_value_id{null_value_id},
-        _access_counter(segment.access_counter) {}
+        _access_counter(segment.access_counter) {
+          std::cout << "AttributeVectorIterable created" << std::endl;
+        }
 
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
@@ -59,7 +63,9 @@ class AttributeVectorIterable : public PointAccessibleSegmentIterable<AttributeV
    public:
     using ValueType = ValueID;
     explicit Iterator(const ValueID null_value_id, CompressedVectorIterator&& attribute_it, ChunkOffset chunk_offset)
-        : _null_value_id{null_value_id}, _attribute_it{std::move(attribute_it)}, _chunk_offset{chunk_offset} {}
+        : _null_value_id{null_value_id}, _attribute_it{std::move(attribute_it)}, _chunk_offset{chunk_offset} {
+          std::cout << "Iterator<CompressedVectorIterator> from AttributeVectorIterable created" << std::endl;
+        }
 
    private:
     friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
@@ -110,7 +116,9 @@ class AttributeVectorIterable : public PointAccessibleSegmentIterable<AttributeV
                                                                                             std::move(
                                                                                                 position_filter_it)},
           _null_value_id{null_value_id},
-          _attribute_decompressor{std::move(attribute_decompressor)} {}
+          _attribute_decompressor{std::move(attribute_decompressor)} {
+            std::cout << "PointAccessIterator<CompressedVectorIterator> from AttributeVectorIterable created" << std::endl;
+          }
 
    private:
     friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
