@@ -100,6 +100,8 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
 
   const auto search_value_id = _get_search_value_id(segment);
 
+  std::cout << "Search ValueID: " << search_value_id << std::endl;
+
   /**
    * Early Outs
    *
