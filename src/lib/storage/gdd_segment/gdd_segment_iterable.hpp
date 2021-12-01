@@ -20,7 +20,7 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
     _segment.access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment.size();
-    _segment.access_counter[SegmentAccessCounter::AccessType::Gdd] += _segment.size();
+    _segment.access_counter[SegmentAccessCounter::AccessType::Dictionary] += _segment.size();
 
     resolve_compressed_vector_type(*_segment.attribute_vector(), [&](const auto& vector) {
       using CompressedVectorIterator = decltype(vector.cbegin());
@@ -38,7 +38,7 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
   template <typename Functor, typename PosListType>
   void _on_with_iterators(const std::shared_ptr<PosListType>& position_filter, const Functor& functor) const {
     _segment.access_counter[SegmentAccessCounter::access_type(*position_filter)] += position_filter->size();
-    _segment.access_counter[SegmentAccessCounter::AccessType::Gdd] += position_filter->size();
+    _segment.access_counter[SegmentAccessCounter::AccessType::Dictionary] += position_filter->size();
 
     resolve_compressed_vector_type(*_segment.attribute_vector(), [&](const auto& vector) {
       using Decompressor = std::decay_t<decltype(vector.create_decompressor())>;
