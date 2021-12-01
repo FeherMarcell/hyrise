@@ -16,7 +16,8 @@ class BaseCompressedVector;
  *
  * Uses vector compression schemes for its attribute vector.
  */
-template <typename T>
+template <typename T, typename = std::enable_if_t<encoding_supports_data_type(
+                          enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
 class GddSegment : public BaseDictionarySegment {
  public:
   explicit GddSegment(const std::shared_ptr<const pmr_vector<T>>& dictionary,
@@ -90,6 +91,9 @@ class GddSegment : public BaseDictionarySegment {
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
 };
 
-EXPLICITLY_DECLARE_DATA_TYPES(GddSegment);
+//EXPLICITLY_DECLARE_DATA_TYPES(GddSegment);
+extern template class GddSegment<int32_t>;
+extern template class GddSegment<int64_t>;
+
 
 }  // namespace opossum
