@@ -63,7 +63,7 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
       : public AbstractSegmentIterator<Iterator<CompressedVectorIterator, GddIteratorType>, SegmentPosition<T>> {
    public:
     using ValueType = T;
-    using IterableType = GddSegmentIterable<T, Gdd>;
+    using IterableType = GddSegmentIterable<T, Dictionary>;
 
     Iterator(GddIteratorType dictionary_begin_it, ValueID null_value_id, CompressedVectorIterator attribute_it,
              ChunkOffset chunk_offset)
@@ -116,7 +116,7 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
                                   SegmentPosition<T>, PosListIteratorType> {
    public:
     using ValueType = T;
-    using IterableType = GddSegmentIterable<T, Gdd>;
+    using IterableType = GddSegmentIterable<T, Dictionary>;
 
     PointAccessIterator(GddIteratorType dictionary_begin_it, const ValueID null_value_id,
                         Decompressor attribute_decompressor, PosListIteratorType position_filter_begin,
