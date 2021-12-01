@@ -149,7 +149,7 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
   };
 
  private:
-  const GddSegment& _segment;
+  const GddSegment<T>& _segment;
   std::shared_ptr<const Dictionary> _dictionary;
 };
 
