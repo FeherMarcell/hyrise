@@ -9,8 +9,8 @@
 
 namespace opossum {
 
-template <typename T, typename Gdd>
-class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentIterable<T, Gdd>> {
+template <typename T, typename Dictionary>
+class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentIterable<T, Dictionary>> {
  public:
   using ValueType = T;
 
@@ -149,8 +149,8 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
   };
 
  private:
-  const BaseGddSegment& _segment;
-  std::shared_ptr<const Gdd> _dictionary;
+  const GddSegment& _segment;
+  std::shared_ptr<const Dictionary> _dictionary;
 };
 
 template <typename T>
@@ -158,9 +158,9 @@ struct is_dictionary_segment_iterable {
   static constexpr auto value = false;
 };
 
-template <template <typename T, typename Gdd> typename Iterable, typename T, typename Gdd>
-struct is_dictionary_segment_iterable<Iterable<T, Gdd>> {
-  static constexpr auto value = std::is_same_v<GddSegmentIterable<T, Gdd>, Iterable<T, Gdd>>;
+template <template <typename T, typename Dictionary> typename Iterable, typename T, typename Dictionary>
+struct is_dictionary_segment_iterable<Iterable<T, Dictionary>> {
+  static constexpr auto value = std::is_same_v<GddSegmentIterable<T, Dictionary>, Iterable<T, Dictionary>>;
 };
 
 template <typename T>
