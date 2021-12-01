@@ -6,6 +6,7 @@
 
 #include "sorted_segment_search.hpp"
 #include "storage/base_dictionary_segment.hpp"
+#include "storage/gdd_segment.hpp"
 #include "storage/create_iterable_from_segment.hpp"
 #include "storage/resolve_encoded_segment_type.hpp"
 #include "storage/segment_iterables/create_iterable_from_attribute_vector.hpp"
@@ -47,7 +48,10 @@ void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
     }
   }
 
-  if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
+  if (const auto* gdd_segment = dynamic_cast<const GddSegment*>(&segment)){
+    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+  }
+  else if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
     _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
   } else {
     _scan_generic_segment(segment, chunk_id, matches, position_filter);
@@ -60,8 +64,10 @@ void ColumnVsValueTableScanImpl::_scan_generic_segment(
   segment_with_iterators_filtered(segment, position_filter, [&](auto it, [[maybe_unused]] const auto end) {
     // Don't instantiate this for this for DictionarySegments and ReferenceSegments to save compile time.
     // DictionarySegments are handled in _scan_dictionary_segment()
+    // GddSegments are handled in _scan_gdd_segment()
     // ReferenceSegments are handled via position_filter
     if constexpr (!is_dictionary_segment_iterable_v<typename decltype(it)::IterableType> &&
+                  !is_gdd_segment_iterable_v<typename decltype(it)::IterableType> &&
                   !is_reference_segment_iterable_v<typename decltype(it)::IterableType>) {
       using ColumnDataType = typename decltype(it)::ValueType;
 
@@ -173,6 +179,104 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
     });
   });
 }
+
+
+void ColumnVsValueTableScanImpl::_scan_gdd_segment(
+    const GddSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) {
+  /**
+   * ValueID search_vid;              // left value id
+   * AllTypeVariant search_vid_value; // dict.value_by_value_id(search_vid)
+   * Variant value;                  // right value
+   *
+   * A ValueID value_id from the attribute vector is included in the result iff
+   *
+   * Operator         |  Condition
+   * column == value  |  dict.value_by_value_id(dict.lower_bound(value)) == value && value_id == dict.lower_bound(value)
+   * column != value  |  dict.value_by_value_id(dict.lower_bound(value)) != value || value_id != dict.lower_bound(value)
+   * column <  value  |  value_id < dict.lower_bound(value)
+   * column <= value  |  value_id < dict.upper_bound(value)
+   * column >  value  |  value_id >= dict.upper_bound(value)
+   * column >= value  |  value_id >= dict.lower_bound(value)
+   */
+
+  const auto search_value_id = _get_search_value_id(segment);
+
+  std::cout << "GDD Segment Search ValueID: " << search_value_id << std::endl;
+
+  /**
+   * Early Outs
+   *
+   * Operator        | All rows match if:                                     | No rows match if:
+   * column == value | search_vid_value == value && unique_values_count == 1  | search_vid_value != value
+   * column != value | search_vid_value != value                              | search_vid_value == value && unique_values_count == 1
+   * column <  value | search_vid == INVALID_VALUE_ID                         | search_vid == 0
+   * column <= value | search_vid == INVALID_VALUE_ID                         | search_vid == 0
+   * column >  value | search_vid == 0                                        | search_vid == INVALID_VALUE_ID
+   * column >= value | search_vid == 0                                        | search_vid == INVALID_VALUE_ID
+   */
+
+  auto iterable = create_iterable_from_attribute_vector(segment);
+
+  if (_value_matches_all(segment, search_value_id)) {
+    std::cout << "All values in Segment are match" << std::endl;
+    if (_column_is_nullable) {
+      // We still have to check for NULLs
+      iterable.with_iterators(position_filter, [&](auto it, auto end) {
+        static const auto always_true = [](const auto&) { return true; };
+        _scan_with_iterators<true>(always_true, it, end, chunk_id, matches);
+      });
+    } else {
+      // No NULLs, all rows match.
+      ++num_chunks_with_all_rows_matching;
+      const auto output_size = position_filter ? position_filter->size() : segment.size();
+      const auto output_start_offset = matches.size();
+      matches.resize(matches.size() + output_size);
+
+      // Make the compiler try harder to vectorize the trivial loop below.
+      // This empty block is used to convince clang-format to keep the pragma indented.
+      // NOLINTNEXTLINE
+      {}  // clang-format off
+      #pragma omp simd
+      // clang-format on
+      for (auto chunk_offset = ChunkOffset{0}; chunk_offset < static_cast<ChunkOffset>(output_size); ++chunk_offset) {
+        // `matches` might already contain entries if it is called multiple times by
+        // AbstractDereferencedColumnTableScanImpl::_scan_reference_segment.
+        matches[output_start_offset + chunk_offset] = RowID{chunk_id, chunk_offset};
+      }
+    }
+
+    return;
+  }
+
+  if (_value_matches_none(segment, search_value_id)) {
+    std::cout << "None of the values in Segment are match" << std::endl;
+    ++num_chunks_with_early_out;
+    return;
+  }
+
+  _with_operator_for_dict_segment_scan([&](auto predicate_comparator) {
+    std::cout << "Scan dict segment" << std::endl;
+    auto comparator = [predicate_comparator, search_value_id](const auto& position) {
+      return predicate_comparator(position.value(), search_value_id);
+    };
+
+    iterable.with_iterators(position_filter, [&](auto it, auto end) {
+      // dictionary.size() represents a NULL in the AttributeVector. For some PredicateConditions, we can
+      // avoid explicitly checking for it, since the condition (e.g., LessThan) would never return true for
+      // dictionary.size() anyway.
+      if (predicate_condition == PredicateCondition::Equals ||
+          predicate_condition == PredicateCondition::LessThanEquals ||
+          predicate_condition == PredicateCondition::LessThan) {
+        _scan_with_iterators<false>(comparator, it, end, chunk_id, matches);
+      } else {
+        _scan_with_iterators<true>(comparator, it, end, chunk_id, matches);
+      }
+    });
+  });
+}
+
+
 
 void ColumnVsValueTableScanImpl::_scan_sorted_segment(const AbstractSegment& segment, const ChunkID chunk_id,
                                                       RowIDPosList& matches,
