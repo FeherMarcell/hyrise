@@ -179,7 +179,6 @@ std::shared_ptr<AbstractSegment> BinaryParser::_import_segment(std::ifstream& fi
 
     default:
       Fail("Unsupported data type for FOR encoding");
-    break
   }
 
   Fail("Invalid EncodingType");
