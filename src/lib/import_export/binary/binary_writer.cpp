@@ -299,27 +299,6 @@ void BinaryWriter::_write_segment(const GddSegment<T>& gdd_segment,
 }
 
 template <typename T>
-void BinaryWriter::_write_segment(const FixedStringDictionarySegment<T>& fixed_string_dictionary_segment,
-                                  bool column_is_nullable, std::ofstream& ofstream) {
-  export_value(ofstream, EncodingType::FixedStringDictionary);
-
-  // Write attribute vector compression id
-  const auto compressed_vector_type_id = _compressed_vector_type_id<T>(fixed_string_dictionary_segment);
-  export_value(ofstream, compressed_vector_type_id);
-
-  // Write the dictionary size, string length and dictionary
-  const auto dictionary_size = fixed_string_dictionary_segment.fixed_string_dictionary()->size();
-  const auto string_length = fixed_string_dictionary_segment.fixed_string_dictionary()->string_length();
-  export_value(ofstream, static_cast<ValueID::base_type>(dictionary_size));
-  export_value(ofstream, static_cast<uint32_t>(string_length));
-  export_values(ofstream, *fixed_string_dictionary_segment.fixed_string_dictionary());
-
-  // Write attribute vector
-  _export_compressed_vector(ofstream, *fixed_string_dictionary_segment.compressed_vector_type(),
-                            *fixed_string_dictionary_segment.attribute_vector());
-}
-
-template <typename T>
 void BinaryWriter::_write_segment(const LZ4Segment<T>& lz4_segment, bool column_is_nullable, std::ofstream& ofstream) {
   export_value(ofstream, EncodingType::LZ4);
 
