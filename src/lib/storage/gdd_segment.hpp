@@ -18,7 +18,7 @@ class BaseCompressedVector;
  */
 template <typename T, typename = std::enable_if_t<encoding_supports_data_type(
                           enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
-class GddSegment : public BaseDictionarySegment {
+class GddSegment : public BaseGddSegment {
  public:
   explicit GddSegment(const std::shared_ptr<const pmr_vector<T>>& dictionary,
                              const std::shared_ptr<const BaseCompressedVector>& attribute_vector);

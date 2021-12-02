@@ -21,10 +21,8 @@ namespace opossum {
  * The algorithm first creates an attribute vector of standard size (uint32_t) and then compresses it
  * using fixed-width integer encoding.
  */
-template <auto Encoding>
-class GddEncoder : public SegmentEncoder<GddEncoder<Encoding>> {
+class GddEncoder : public SegmentEncoder<GddEncoder> {
  public:
-  static constexpr auto _encoding_type = enum_c<EncodingType, Encoding>;
   static constexpr auto _uses_vector_compression = true;  // see base_segment_encoder.hpp for details
 
   template <typename T>
@@ -47,10 +45,6 @@ class GddEncoder : public SegmentEncoder<GddEncoder<Encoding>> {
         if (!segment_item.is_null()) {
           const auto segment_value = segment_item.value();
           dense_values.push_back(segment_value);
-
-          if constexpr (Encoding == EncodingType::FixedStringGdd) {
-            if (segment_value.size() > max_string_length) max_string_length = segment_value.size();
-          }
         } else {
           null_values[current_position] = true;
         }
@@ -83,7 +77,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder<Encoding>> {
     const auto max_value_id = null_value_id;
 
     const auto compressed_attribute_vector = std::shared_ptr<const BaseCompressedVector>(compress_vector(
-        uncompressed_attribute_vector, SegmentEncoder<GddEncoder<Encoding>>::vector_compression_type(),
+        uncompressed_attribute_vector, SegmentEncoder<GddEncoder>::vector_compression_type(),
         allocator, {max_value_id}));
 
     // Encode a segment with a pmr_vector<T> as dictionary

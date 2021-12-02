@@ -29,7 +29,7 @@ template <typename T, typename U>
 AllTypeVariant GddSegment<T, U>::operator[](const ChunkOffset chunk_offset) const {
   PerformanceWarning("operator[] used");
   DebugAssert(chunk_offset != INVALID_CHUNK_OFFSET, "Passed chunk offset must be valid.");
-  access_counter[SegmentAccessCounter::AccessType::Gdd] += 1;
+  access_counter[SegmentAccessCounter::AccessType::Dictionary] += 1;
   const auto typed_value = get_typed_value(chunk_offset);
   if (!typed_value) {
     return NULL_VALUE;
@@ -75,13 +75,13 @@ std::optional<CompressedVectorType> GddSegment<T, U>::compressed_vector_type() c
 
 template <typename T, typename U>
 EncodingType GddSegment<T, U>::encoding_type() const {
-  return EncodingType::Gdd;
+  return EncodingType::GDD;
 }
 
 template <typename T, typename U>
 ValueID GddSegment<T, U>::lower_bound(const AllTypeVariant& value) const {
   DebugAssert(!variant_is_null(value), "Null value passed.");
-  access_counter[SegmentAccessCounter::AccessType::Gdd] +=
+  access_counter[SegmentAccessCounter::AccessType::Dictionary] +=
       static_cast<uint64_t>(std::ceil(std::log2(_dictionary->size())));
   const auto typed_value = boost::get<T>(value);
   // Find lower bound in the dictionary 
@@ -93,7 +93,7 @@ ValueID GddSegment<T, U>::lower_bound(const AllTypeVariant& value) const {
 template <typename T, typename U>
 ValueID GddSegment<T, U>::upper_bound(const AllTypeVariant& value) const {
   DebugAssert(!variant_is_null(value), "Null value passed.");
-  access_counter[SegmentAccessCounter::AccessType::Gdd] +=
+  access_counter[SegmentAccessCounter::AccessType::Dictionary] +=
       static_cast<uint64_t>(std::ceil(std::log2(_dictionary->size())));
   const auto typed_value = boost::get<T>(value);
 
@@ -105,7 +105,7 @@ ValueID GddSegment<T, U>::upper_bound(const AllTypeVariant& value) const {
 template <typename T, typename U>
 AllTypeVariant GddSegment<T, U>::value_of_value_id(const ValueID value_id) const {
   DebugAssert(value_id < _dictionary->size(), "ValueID out of bounds");
-  access_counter[SegmentAccessCounter::AccessType::Gdd] += 1;
+  access_counter[SegmentAccessCounter::AccessType::Dictionary] += 1;
   return (*_dictionary)[value_id];
 }
 
