@@ -14,6 +14,7 @@ class Table;
 class ReferenceSegment;
 class AbstractSegment;
 class BaseDictionarySegment;
+class BaseGddSegment;
 class AttributeVectorIterable;
 
 /**

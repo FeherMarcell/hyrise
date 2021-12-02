@@ -39,6 +39,10 @@ class ColumnVsValueTableScanImpl : public AbstractDereferencedColumnTableScanImp
                              const std::shared_ptr<const AbstractPosList>& position_filter) const;
   void _scan_dictionary_segment(const BaseDictionarySegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
                                 const std::shared_ptr<const AbstractPosList>& position_filter);
+  
+  void _scan_gdd_segment(
+    const BaseGddSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter);
 
   void _scan_sorted_segment(const AbstractSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
                             const std::shared_ptr<const AbstractPosList>& position_filter,
@@ -81,6 +85,19 @@ class ColumnVsValueTableScanImpl : public AbstractDereferencedColumnTableScanImp
     }
   }
   /**@}*/
+
+  /**
+   * @defgroup Methods used for handling GDD segments
+   * @{
+   */
+  ValueID _gdd_get_search_value_id(const BaseGddSegment& segment) const;
+
+  bool _gdd_value_matches_all(const BaseGddSegment& segment, const ValueID search_value_id) const;
+
+  bool _gdd_value_matches_none(const BaseGddSegment& segment, const ValueID search_value_id) const;
+  
+  /**@}*/
+
  private:
   const bool _column_is_nullable;
 };

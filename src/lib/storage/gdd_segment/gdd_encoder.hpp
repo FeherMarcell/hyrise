@@ -23,6 +23,7 @@ namespace opossum {
  */
 class GddEncoder : public SegmentEncoder<GddEncoder> {
  public:
+  static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::GDD>;
   static constexpr auto _uses_vector_compression = true;  // see base_segment_encoder.hpp for details
 
   template <typename T>
@@ -32,8 +33,6 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     // construct the actual dictionary and attribute vector.
     std::vector<T> dense_values;    // contains the actual values (no NULLs)
     std::vector<bool> null_values;  // bitmap to mark NULL values
-
-    auto max_string_length = size_t{0};
 
     segment_iterable.with_iterators([&](auto segment_it, const auto segment_end) {
       const auto segment_size = std::distance(segment_it, segment_end);

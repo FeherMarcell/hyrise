@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 
-#include "base_dictionary_segment.hpp"
+#include "base_gdd_segment.hpp"
 #include "storage/vector_compression/base_compressed_vector.hpp"
 #include "types.hpp"
 
