@@ -95,5 +95,4 @@ class GddSegment : public BaseDictionarySegment {
 extern template class GddSegment<int32_t>;
 extern template class GddSegment<int64_t>;
 
-
 }  // namespace opossum

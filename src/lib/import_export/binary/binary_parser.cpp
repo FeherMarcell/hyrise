@@ -166,16 +166,17 @@ std::shared_ptr<AbstractSegment> BinaryParser::_import_segment(std::ifstream& fi
       } else {
         Fail("Unsupported data type for FOR encoding");
       }
-    
+    /*
     case EncodingType::GDD:
       if constexpr (encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>,
                                                 hana::type_c<ColumnDataType>)) {
         return _import_gdd_segment<ColumnDataType>(file, row_count);
       }
+    */
     
     case EncodingType::LZ4:
       return _import_lz4_segment<ColumnDataType>(file, row_count);
-      
+
     default:
       Fail("Unsupported data type for FOR encoding");
     break
