@@ -286,16 +286,16 @@ void BinaryWriter::_write_segment(const GddSegment<T>& gdd_segment,
   // GDDTODO: write me
 
   // Write attribute vector compression id
-  const auto compressed_vector_type_id = _compressed_vector_type_id<T>(dictionary_segment);
+  const auto compressed_vector_type_id = _compressed_vector_type_id<T>(gdd_segment);
   export_value(ofstream, compressed_vector_type_id);
 
   // Write the dictionary size and dictionary
-  export_value(ofstream, static_cast<ValueID::base_type>(dictionary_segment.dictionary()->size()));
-  export_values(ofstream, *dictionary_segment.dictionary());
+  export_value(ofstream, static_cast<ValueID::base_type>(gdd_segment.dictionary()->size()));
+  export_values(ofstream, *gdd_segment.dictionary());
 
   // Write attribute vector
-  _export_compressed_vector(ofstream, *dictionary_segment.compressed_vector_type(),
-                            *dictionary_segment.attribute_vector());
+  _export_compressed_vector(ofstream, *gdd_segment.compressed_vector_type(),
+                            *gdd_segment.attribute_vector());
 }
 
 template <typename T>
