@@ -48,7 +48,9 @@ void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
     }
   }
 
-  if (const auto* gdd_segment = dynamic_cast<const GddSegment*>(&segment)){
+  using ColumnType = typename _in_table->column_data_type(column_id);
+
+  if (const auto* gdd_segment = dynamic_cast<const GddSegment<ColumnType>*>(&segment)){
     _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
   }
   else if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
