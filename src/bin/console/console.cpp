@@ -544,20 +544,15 @@ int Console::_load_table(const std::string& args) {
 
   const auto filepath = std::filesystem::path{arguments.at(0)};
   const auto tablename = arguments.size() >= 2 ? arguments.at(1) : std::string{filepath.stem()};
+  const std::string encoding = arguments.size() > 2 ? arguments.at(2) : "Unencoded";
+  const auto chunk_size = arguments.size() > 3 ? boost::lexical_cast<ChunkOffset>(arguments.at(3)) : Chunk::DEFAULT_SIZE;
   
-  
-
   out("Loading " + std::string(filepath) + " into table \"" + tablename + "\"\n");
-
+  out("Chunk size: " + std::to_string(chunk_size) + " elements\n");
   if (Hyrise::get().storage_manager.has_table(tablename)) {
     out("Table \"" + tablename + "\" already existed. Replacing it.\n");
   }
 
-  auto chunk_size = Chunk::DEFAULT_SIZE;
-  if (arguments.size() > 3) {
-    chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(3));
-  }
-  out("Chunk size: " + std::to_string(chunk_size) + " elements\n");
 
   try {
     auto importer = std::make_shared<Import>(filepath, tablename, chunk_size);
@@ -568,7 +563,7 @@ int Console::_load_table(const std::string& args) {
   }
 
   
-  const std::string encoding = arguments.size() > 2 ? arguments.at(2) : "Unencoded";
+  
   const auto encoding_type = encoding_type_to_string.right.find(encoding);
   if (encoding_type == encoding_type_to_string.right.end()) {
     const auto encoding_options = boost::algorithm::join(
