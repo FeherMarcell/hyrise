@@ -8,8 +8,6 @@
 #include "storage/segment_iterables.hpp"
 #include "storage/vector_compression/resolve_compressed_vector_type.hpp"
 
-#include <iostream>
-
 namespace opossum {
 
 template <typename T, typename Dictionary>
@@ -18,14 +16,10 @@ class DictionarySegmentIterable : public PointAccessibleSegmentIterable<Dictiona
   using ValueType = T;
 
   explicit DictionarySegmentIterable(const DictionarySegment<T>& segment)
-      : _segment{segment}, _dictionary(segment.dictionary()) {
-        std::cout << "DictionarySegmentIterable created from DictionarySegment" << std::endl;
-      }
+      : _segment{segment}, _dictionary(segment.dictionary()) { }
 
   explicit DictionarySegmentIterable(const FixedStringDictionarySegment<pmr_string>& segment)
-      : _segment{segment}, _dictionary(segment.fixed_string_dictionary()) {
-        std::cout << "DictionarySegmentIterable created from FixedStringDictionarySegment" << std::endl;
-      }
+      : _segment{segment}, _dictionary(segment.fixed_string_dictionary()) { }
 
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
