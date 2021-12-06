@@ -16,6 +16,7 @@
 #include <regex>
 #include <string>
 #include <vector>
+#include <sstream>
 
 #include <boost/algorithm/string/join.hpp>
 #include <boost/range/adaptors.hpp>
@@ -23,6 +24,7 @@
 #include "SQLParser.h"
 #include "concurrency/transaction_context.hpp"
 #include "constant_mappings.hpp"
+#include "benchmark_config.hpp"
 #include "hyrise.hpp"
 #include "import_export/file_type.hpp"
 #include "logical_query_plan/lqp_utils.hpp"
@@ -52,6 +54,7 @@
 #include "visualization/join_graph_visualizer.hpp"
 #include "visualization/lqp_visualizer.hpp"
 #include "visualization/pqp_visualizer.hpp"
+
 
 #define ANSI_COLOR_RED "\x1B[31m"    // NOLINT
 #define ANSI_COLOR_GREEN "\x1B[32m"  // NOLINT
@@ -155,6 +158,9 @@ Console::Console()
   register_command("setting", std::bind(&Console::_change_runtime_setting, this, std::placeholders::_1));
   register_command("load_plugin", std::bind(&Console::_load_plugin, this, std::placeholders::_1));
   register_command("unload_plugin", std::bind(&Console::_unload_plugin, this, std::placeholders::_1));
+  
+  register_command("show_memory", std::bind(&Console::_show_memory_usage, this, std::placeholders::_1));
+  register_command("change_encoding_to", std::bind(&Console::_change_encoding, this, std::placeholders::_1));
 }
 
 Console::~Console() {
@@ -447,6 +453,8 @@ int Console::_help(const std::string&) {
   out("                                                - Optional, a query to visualize. If not specified, the last\n");
   out("                                                  previously executed query is visualized.\n");
   out("  txinfo                                  - Print information on the current transaction\n");
+  out("  show_memory TABLENAME                   - Print memory usage of all columns of the given table\n");
+  out("  change_encoding_to ENCODING TABLENAME COLUMNNAME [CHUNK_IDX] - Change the encoding of a column. All chunks are re-encoded if you do not specify the chunk index\n");
   out("  pwd                                     - Print current working directory\n");
   out("  load_plugin FILE                        - Load and start plugin stored at FILE\n");
   out("  unload_plugin NAME                      - Stop and unload the plugin libNAME.so/dylib (also clears the query cache)\n");  // NOLINT
@@ -487,7 +495,7 @@ int Console::_generate_tpcc(const std::string& args) {
 int Console::_generate_tpch(const std::string& args) {
   const auto arguments = tokenize(args);
 
-  if (arguments.empty() || arguments.size() > 2) {
+  if (arguments.empty() ) {
     // clang-format off
     out("Usage: ");
     out("  generate_tpch SCALE_FACTOR [CHUNK_SIZE]   Generate TPC-H tables with the specified scale factor. \n");
@@ -503,8 +511,17 @@ int Console::_generate_tpch(const std::string& args) {
     chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(1));
   }
 
+  
+
   out("Generating all TPCH tables (this might take a while) ...\n");
-  TPCHTableGenerator{scale_factor, ClusteringConfiguration::None, chunk_size}.generate_and_store();
+  auto config = std::make_shared<BenchmarkConfig>(BenchmarkConfig::get_default_config());
+  config->chunk_size = chunk_size;
+  // Default = Unencoded
+  const std::string encoding = (arguments.size() > 2) ? arguments.at(2) : "Unencoded";
+  config->encoding_config.default_encoding_spec = EncodingConfig::encoding_spec_from_strings(encoding, "");
+  out("Using encoding " + encoding + "\n");
+  
+  TPCHTableGenerator{scale_factor, ClusteringConfiguration::None, config}.generate_and_store();
 
   return ReturnCode::Ok;
 }
@@ -592,6 +609,144 @@ int Console::_load_table(const std::string& args) {
       }
     }
     ChunkEncoder::encode_chunks(table, immutable_chunks, SegmentEncodingSpec{encoding_type->second});
+  }
+
+  return ReturnCode::Ok;
+}
+
+int Console::_change_encoding(const std::string& args) {
+  std::vector<std::string> arguments = trim_and_split(args);
+  if (arguments.empty()) {
+    out("Usage:\n");
+    out("  change_encoding_to ENCODING TABLENAME COLUMN_NAME [CHUNK_INDEX]\n");
+    return ReturnCode::Error;
+  }
+
+  const auto encoding = arguments[0];
+  const auto tablename = arguments[1];
+  const auto column_name = arguments[2];
+  // Set to -1 if none was given (means all chunks)
+  const auto chunk_idx = arguments.size() > 3 ? ChunkID(std::stoi(arguments[3])) : -1;
+
+  // Check that the table exists
+  if (!Hyrise::get().storage_manager.has_table(tablename)) {
+    out("Table \"" + tablename + "\" Does not exist.\n");
+    return ReturnCode::Error;
+  }
+
+  const auto& table = Hyrise::get().storage_manager.get_table(tablename);
+  out("Table \"" + tablename + "\"\n");
+
+  // Check that encoding string is valid 
+  const auto encoding_type = encoding_type_to_string.right.find(encoding);
+  if (encoding_type == encoding_type_to_string.right.end()) {
+    // Not a valid encoding
+    out("Error: Invalid encoding type: '" + encoding + "\n");
+    return ReturnCode::Error;
+  }
+
+  // Check that the encoding supports the column type (throws if the column name does not exist)
+  const ColumnID column_id = table->column_id_by_name(column_name);
+  if (!encoding_supports_data_type(encoding_type->second, table->column_data_type(column_id))) {
+    out("Encoding \"" + encoding + "\" not supported for column \"" + column_name +"\", aborting\n");
+    return ReturnCode::Error;
+  }
+
+  out("Encoding \"" + tablename + "\" using " + encoding + "\n");
+  std::vector<ChunkID> immutable_chunks;
+  
+  // All: start=0, end=table->chunk_count()
+  // Given chunk_idx: start=chunk_idx, end=chunk_idx
+  ChunkID start = (chunk_idx >= 0) ? ChunkID(chunk_idx) : ChunkID(0);
+  ChunkID end = (chunk_idx >= 0) ? ChunkID(chunk_idx) : table->chunk_count();
+
+  for (ChunkID chunk_id = start; chunk_id < end; ++chunk_id) {
+    // encode the segment using the specified encoding
+    const auto encoded_segment = ChunkEncoder::encode_segment(table->get_chunk(chunk_id)->get_segment(column_id), 
+                                  table->column_data_type(column_id),
+                                  SegmentEncodingSpec{encoding_type->second});
+    // Replace the original representation with the new one
+    table->get_chunk(chunk_id)->replace_segment(column_id, encoded_segment);
+    out("Chunk " + std::to_string(chunk_id) + " encoded.\n");
+  }
+  
+  out("All chunks encoded to " + encoding + "\n");
+  //ChunkEncoder::encode_chunks(table, immutable_chunks, SegmentEncodingSpec{encoding_type->second});
+
+  return ReturnCode::Ok;
+}
+
+int Console::_show_memory_usage(const std::string& args){
+  std::vector<std::string> arguments = trim_and_split(args);
+
+  std::vector<std::string> tables;
+  if(arguments.size() > 0 && !arguments[0].empty()){
+
+    const auto tablename = arguments[0];
+
+    if (!Hyrise::get().storage_manager.has_table(tablename)) {
+      out("Table \"" + tablename + "\" Does not exist.\n");
+      return ReturnCode::Error;
+    }
+
+    tables.push_back(tablename);
+  }
+  else {
+    // Add all tables
+    tables = Hyrise::get().storage_manager.table_names();
+  }
+
+  for(const auto& tablename : tables){
+    // Get table
+    const auto& table = Hyrise::get().storage_manager.get_table(tablename);
+
+    // Allocate and zero-initialize vectors for memory and encoding of each segment per column
+    const auto columns_num = table->column_count();
+    const auto column_names = table->column_names();
+    std::vector<std::vector<size_t>> memory_per_column(columns_num);
+    std::vector<std::vector<std::string>> segment_encodings(columns_num);
+
+
+    for (ChunkID chunk_id(0); chunk_id < table->chunk_count(); ++chunk_id) {
+      const auto chunk = table->get_chunk(chunk_id);
+
+      for(ColumnID colid(0) ; colid < columns_num ; ++colid){
+        auto segment = chunk->get_segment(colid);
+        // Calculate segment memory use
+        memory_per_column[colid].push_back(segment->memory_usage(MemoryUsageCalculationMode::Full));
+        
+        // Figure out the encoding type
+        if(dynamic_cast<BaseDictionarySegment*>(&*segment)){
+          segment_encodings[colid].push_back("Dictionary");
+        }
+        else if(dynamic_cast<BaseGddSegment*>(&*segment)){
+          segment_encodings[colid].push_back("GDD");
+        }
+        else{
+          segment_encodings[colid].push_back("Value");
+        }
+      }
+    }
+    
+    for(size_t col_idx=0 ; col_idx < memory_per_column.size() ; ++col_idx){
+      //std::stringstream result;
+      //std::copy(memory_per_column[col_idx].begin(), memory_per_column[col_idx].end(), std::ostream_iterator<int>(result, " "));
+      if(false){
+
+        // Print the size and type of each segment
+        out(column_names[col_idx] + ":\n");
+        for(size_t s_idx=0 ; s_idx < memory_per_column[col_idx].size() ; s_idx++) {
+          out(" " + std::to_string(memory_per_column[col_idx][s_idx]) + " bytes ("+segment_encodings[col_idx][s_idx]+")\n");
+        }
+        const auto total = std::accumulate(memory_per_column[col_idx].begin(), memory_per_column[col_idx].end(), 0);
+        out(" TOTAL: " + std::to_string(total) + " bytes\n");
+      }
+      else {
+        // Print just the name and total memory
+        const auto total = std::accumulate(memory_per_column[col_idx].begin(), memory_per_column[col_idx].end(), 0);
+        out(tablename+"."+column_names[col_idx] + ", " + std::to_string(total) + "\n");
+      }
+    }
   }
 
   return ReturnCode::Ok;
