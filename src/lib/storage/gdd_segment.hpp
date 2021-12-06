@@ -87,6 +87,7 @@ class GddSegment : public BaseGddSegment {
 
  protected:
   const std::shared_ptr<const pmr_vector<T>> _dictionary;
+  //const std::shared_ptr<const pmr_vector<T>> _bases;
   const std::shared_ptr<const BaseCompressedVector> _attribute_vector;
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
 };

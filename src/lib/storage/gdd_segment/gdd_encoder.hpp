@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <iostream>
 
 #include "storage/base_segment_encoder.hpp"
 #include "storage/gdd_segment.hpp"
@@ -12,6 +13,7 @@
 #include "storage/vector_compression/vector_compression.hpp"
 #include "types.hpp"
 #include "utils/enum_constant.hpp"
+#include "gdd_lsb.hpp"
 
 namespace opossum {
 
@@ -29,13 +31,16 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
   template <typename T>
   std::shared_ptr<AbstractEncodedSegment> _on_encode(const AnySegmentIterable<T> segment_iterable,
                                                      const PolymorphicAllocator<T>& allocator) {
+
     // Vectors to gather the input segment's data. This data is used in a later step to
     // construct the actual dictionary and attribute vector.
     std::vector<T> dense_values;    // contains the actual values (no NULLs)
     std::vector<bool> null_values;  // bitmap to mark NULL values
+    bool has_null = false
 
     segment_iterable.with_iterators([&](auto segment_it, const auto segment_end) {
       const auto segment_size = std::distance(segment_it, segment_end);
+      
       dense_values.reserve(segment_size);  // potentially overallocate for segments with NULLs
       null_values.resize(segment_size);    // resized to size of segment
 
@@ -46,6 +51,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
           dense_values.push_back(segment_value);
         } else {
           null_values[current_position] = true;
+          has_null = true;
         }
       }
     });
@@ -54,8 +60,17 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     std::sort(dictionary->begin(), dictionary->end());
     dictionary->erase(std::unique(dictionary->begin(), dictionary->end()), dictionary->cend());
     dictionary->shrink_to_fit();
-
     const auto null_value_id = static_cast<uint32_t>(dictionary->size());
+
+    std::cout << segment_size << " values, " << dictionary.size() << " unique, bases: " << std::endl
+    // Profile the dense values
+    const auto bases_nums = gdd_lsb::get_bases_num<T>(dense_values, 100);
+    for(auto i=0 ; i<bases_nums.size() ; ++i){
+      const auto comp_rate = gdd_lsb::calculate_compression_rate_percent<T>(i, bases_nums[i], dense_values.size());
+      std::cout << " " << i << " bit deviation: " << bases_nums[i] << " bases, comp rate: " << comp_rate << std::endl;
+    }
+
+    
 
     auto uncompressed_attribute_vector = pmr_vector<uint32_t>{null_values.size(), allocator};
     auto values_iter = dense_values.cbegin();
