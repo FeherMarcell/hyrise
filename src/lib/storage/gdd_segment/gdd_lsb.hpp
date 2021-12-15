@@ -121,10 +121,11 @@ namespace gdd_lsb
     float calculate_compression_rate_percent(const size_t& deviation_bits, const size_t& bases_num, const size_t& data_num){
         const size_t data_size_bits = sizeof(T) * 8;
         const auto total_bases_bits = bases_num * (data_size_bits-deviation_bits);
+        const size_t total_orig_data_bits = data.size() * data_size_bits;
         // Deviations: i bits for each data element
         const auto total_dev_bits = data_num * deviation_bits;
 
-        base_indexes_bits = bits_needed(bases_num) * data_num;
+        const auto base_indexes_bits = _bits_needed(bases_num) * data_num;
 
         return 100*(1- ((total_bases_bits + total_dev_bits + base_indexes_bits)/(float)total_orig_data_bits));
     }

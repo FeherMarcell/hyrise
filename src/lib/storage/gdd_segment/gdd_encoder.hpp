@@ -62,7 +62,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     dictionary->shrink_to_fit();
     const auto null_value_id = static_cast<uint32_t>(dictionary->size());
 
-    std::cout << segment_size << " values, " << dictionary.size() << " unique, bases: " << std::endl
+    std::cout << segment_size << " values, " << (dictionary.size() + (size_t)has_null) << " unique, bases: " << std::endl
     // Profile the dense values
     const auto bases_nums = gdd_lsb::get_bases_num<T>(dense_values, 100);
     for(auto i=0 ; i<bases_nums.size() ; ++i){
