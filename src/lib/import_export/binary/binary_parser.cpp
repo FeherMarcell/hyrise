@@ -256,7 +256,8 @@ std::shared_ptr<GddSegment<T>> BinaryParser::_import_gdd_segment(std::ifstream& 
   // GDDTODO: write me
   auto values = std::make_shared<pmr_vector<T>>();
   auto null_values = std::make_shared<pmr_vector<bool>>();
-  return std::make_shared<GddSegment<T>>(values, null_values, {});
+  auto gdd_profile = std::make_shared<std::vector<uint32_t>>();
+  return std::make_shared<GddSegment<T>>(values, null_values, gdd_profile);
 }
 
 template <typename T>

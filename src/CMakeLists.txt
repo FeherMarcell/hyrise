@@ -94,12 +94,12 @@ if (ENABLE_CLANG_TIDY)
     set(CMAKE_CXX_CLANG_TIDY "${CMAKE_SOURCE_DIR}/scripts/clang_tidy_wrapper.sh;${CMAKE_SOURCE_DIR}")
 endif()
 
-#add_subdirectory(benchmarklib)
-#add_subdirectory(bin)
+add_subdirectory(benchmarklib)
+add_subdirectory(bin)
 add_subdirectory(lib)
 add_subdirectory(plugins)
 
 # No clang-tidy for the following subfolders
 set(CMAKE_CXX_CLANG_TIDY "")
-#add_subdirectory(benchmark)
+add_subdirectory(benchmark)
 add_subdirectory(test)
