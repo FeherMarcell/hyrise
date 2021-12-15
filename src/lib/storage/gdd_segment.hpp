@@ -16,15 +16,17 @@ class BaseCompressedVector;
  *
  * Uses vector compression schemes for its attribute vector.
  */
-template <typename T, typename = std::enable_if_t<encoding_supports_data_type(
-                          enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
+template <typename T, typename = std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
 class GddSegment : public BaseGddSegment {
  public:
   explicit GddSegment(const std::shared_ptr<const pmr_vector<T>>& dictionary,
-                             const std::shared_ptr<const BaseCompressedVector>& attribute_vector);
+                             const std::shared_ptr<const BaseCompressedVector>& attribute_vector,
+                             const std::shared_ptr<const pmr_vector<uint32_t>>& _gdd_profile);
 
   // returns an underlying dictionary
   std::shared_ptr<const pmr_vector<T>> dictionary() const;
+  
+  std::shared_ptr<const pmr_vector<uint32_t>> gdd_profile() const;
 
   /**
    * @defgroup AbstractSegment interface
@@ -35,10 +37,13 @@ class GddSegment : public BaseGddSegment {
 
   std::optional<T> get_typed_value(const ChunkOffset chunk_offset) const {
     // performance critical - not in cpp to help with inlining
+    // Look up dictionary index (ValueID) from compressed attribute vector
     const auto value_id = _decompressor->get(chunk_offset);
     if (value_id == _dictionary->size()) {
+      // requested value is a NULL
       return std::nullopt;
     }
+    // Not null, look up the actual value from the dictionary 
     return (*_dictionary)[value_id];
   }
 
@@ -90,6 +95,7 @@ class GddSegment : public BaseGddSegment {
   //const std::shared_ptr<const pmr_vector<T>> _bases;
   const std::shared_ptr<const BaseCompressedVector> _attribute_vector;
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
+  const std::shared_ptr<const pmr_vector<uint32_t>> _gdd_profile;
 };
 
 //EXPLICITLY_DECLARE_DATA_TYPES(GddSegment);

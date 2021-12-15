@@ -203,6 +203,7 @@ void AbstractTableGenerator::generate_and_store() {
     std::cout << "- Encoding tables (if necessary) and generating pruning statistics" << std::endl;
 
     auto jobs = std::vector<std::shared_ptr<AbstractTask>>{};
+    /*
     jobs.reserve(table_info_by_name.size());
     for (auto& table_info_by_name_pair : table_info_by_name) {
       const auto& table_name = table_info_by_name_pair.first;
@@ -220,6 +221,26 @@ void AbstractTableGenerator::generate_and_store() {
       };
       jobs.emplace_back(std::make_shared<JobTask>(encode_table));
     }
+    */
+    // Add all table encodings as a single task, to prevent reordering output
+    jobs.reserve(1);
+
+    const auto encode_table = [&]() {
+      for (auto& table_info_by_name_pair : table_info_by_name) {
+        const auto& table_name = table_info_by_name_pair.first;
+        auto& table_info = table_info_by_name_pair.second;
+        Timer per_table_timer;
+        table_info.re_encoded =
+            BenchmarkTableEncoder::encode(table_name, table_info.table, _benchmark_config->encoding_config);
+        auto output = std::stringstream{};
+        output << "-  Encoding '" + table_name << "' - "
+              << (table_info.re_encoded ? "encoding applied" : "no encoding necessary") << " ("
+              << per_table_timer.lap_formatted() << ")\n";
+        std::cout << output.str() << std::flush;
+      }
+    };
+    jobs.emplace_back(std::make_shared<JobTask>(encode_table));
+
     Hyrise::get().scheduler()->schedule_and_wait_for_tasks(jobs);
 
     metrics.encoding_duration = timer.lap();
