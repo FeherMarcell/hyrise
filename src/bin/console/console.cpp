@@ -430,7 +430,7 @@ int Console::_help(const std::string&) {
   out("HYRISE SQL Interface\n\n");
   out("Available commands:\n");
   out("  generate_tpcc NUM_WAREHOUSES [CHUNK_SIZE] - Generate all TPC-C tables\n");
-  out("  generate_tpch SCALE_FACTOR [CHUNK_SIZE ENCODING] - Generate all TPC-H tables\n");
+  out("  generate_tpch SCALE_FACTOR [CHUNK_SIZE] - Generate all TPC-H tables\n");
   out("  generate_tpcds SCALE_FACTOR [CHUNK_SIZE] - Generate all TPC-DS tables\n");
   out("  load FILEPATH [TABLENAME [ENCODING [CHUNK_SIZE]]]    - Load table from disk specified by filepath FILEPATH, store it with name TABLENAME\n");  // NOLINT
   out("                                               The import type is chosen by the type of FILEPATH.\n");
@@ -716,14 +716,11 @@ int Console::_show_memory_usage(const std::string& args){
         memory_per_column[colid].push_back(segment->memory_usage(MemoryUsageCalculationMode::Full));
         
         // Figure out the encoding type
-        if(const auto* dictionary_segment = dynamic_cast<BaseDictionarySegment*>(&*segment)){
+        if(dynamic_cast<BaseDictionarySegment*>(&*segment)){
           segment_encodings[colid].push_back("Dictionary");
-          out("Dictionary Segment dict size: " + std::to_string(dictionary_segment->unique_values_count())+"\n");
         }
         else if(dynamic_cast<BaseGddSegment*>(&*segment)){
           segment_encodings[colid].push_back("GDD");
-          //const auto gdd_profile = *gdd_segment->gdd_profile();
-          //out("Gdd Segment #bases at 8 bit devs: " + std::to_string(gdd_profile[7])+"\n");
         }
         else{
           segment_encodings[colid].push_back("Value");
