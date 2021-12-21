@@ -1,7 +1,6 @@
 
 #include <vector>
 #include <type_traits>
-
 #include "compact_vector.hpp"
 #include "permute.hpp"
 
@@ -87,9 +86,11 @@ namespace gdd_lsb
         }
 
         template<typename T, unsigned DEV_BITS> 
-        static T get(const size_t idx, const std::vector<T>& bases, 
-                            const compact::vector<unsigned, DEV_BITS>& deviations,
-                            const shared_ptr<compact::vector<size_t>>& base_indexes_ptr){
+        static T get(const size_t idx, 
+                    const std::vector<T>& bases, 
+                    const compact::vector<unsigned, DEV_BITS>& deviations,
+                    const shared_ptr<compact::vector<size_t>>& base_indexes_ptr)
+        {
             
             const auto deviation = deviations[idx];
             const auto base_index = (*base_indexes_ptr)[idx];

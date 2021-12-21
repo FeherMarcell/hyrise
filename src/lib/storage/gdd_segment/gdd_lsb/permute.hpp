@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <numeric>
 #include <functional>
-
 #include "compact_vector.hpp"
 
 namespace permute

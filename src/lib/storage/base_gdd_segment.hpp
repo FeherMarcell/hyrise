@@ -4,6 +4,7 @@
 
 #include "abstract_encoded_segment.hpp"
 
+
 namespace opossum {
 
 class BaseCompressedVector;
@@ -18,33 +19,15 @@ class BaseGddSegment : public AbstractEncodedSegment {
   EncodingType encoding_type() const override = 0;
 
   /**
-   * @brief Returns index (i.e. ValueID) of first dictionary entry >= search value
-   *
-   * @param value the search value
-   * @return INVALID_VALUE_ID if all entries are smaller than value
+   * @brief ColumnVsValue TableScan operator
+   * 
    */
-  virtual ValueID lower_bound(const AllTypeVariant& value) const = 0;
-
-  /**
-   * @brief Returns index (i.e. ValueID) of first dictionary entry > search value
-   *
-   * @param value the search value
-   * @return INVALID_VALUE_ID if all entries are smaller than or equal to value
-   */
-  virtual ValueID upper_bound(const AllTypeVariant& value) const = 0;
-
-  /**
-   * @pre       @param value_id is a valid ValueID of the Gdd
-   * @return    The value associated with @param value_id
-   */
-  virtual AllTypeVariant value_of_value_id(const ValueID value_id) const = 0;
-
-  /**
-   * @brief The size of the dictionary
-   */
-  virtual ValueID::base_type unique_values_count() const = 0;
-
-  virtual std::shared_ptr<const BaseCompressedVector> attribute_vector() const = 0;
+  virtual void segment_vs_value_table_scan(
+    const PredicateCondition& condition, 
+    const AllTypeVariant& query_value, 
+    const ChunkID chunk_id, 
+    RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) const = 0;
 
   /**
    * @brief Returns encoding specific null value ID

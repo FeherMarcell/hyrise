@@ -13,7 +13,8 @@
 #include "storage/vector_compression/vector_compression.hpp"
 #include "types.hpp"
 #include "utils/enum_constant.hpp"
-#include "gdd_lsb.hpp"
+
+#include "gdd_lsb/gdd_lsb.hpp"
 
 namespace opossum {
 
@@ -54,6 +55,22 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
         }
       }
     });
+
+    
+    auto bases = make_shared<std::vector<T>>();
+    auto deviations = make_shared<compact::vector<unsigned, 8>>();
+    auto base_indexes = make_shared<compact::vector<size_t>>();
+
+    gdd_lsb::std_bases::encode(dense_values, *bases, *deviations, base_indexes);
+
+    const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
+        bases, 
+        deviations, 
+        base_indexes
+      );
+    std::cout  << "Bases: " << bases->size() << " / " << null_values.size() << std::endl;
+    return gdd_segment;
+    /*
 
     // Build dictionary
     auto dictionary = std::make_shared<pmr_vector<T>>(dense_values.cbegin(), dense_values.cend(), allocator);
@@ -129,6 +146,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     */
     
     // Values, Unique values, Cardinality%, Dict%, GD 8 bits bases,GD 8 bits%, GD best bits, GD best bits - bases, GD best bits %
+    /*
     const auto bases_8_bits = bases_nums[8];
     const auto comp_gd_8_bits = gdd_lsb::calculate_compression_rate_percent<T>(8, bases_nums[8], dense_values.size());
 
@@ -146,6 +164,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     std::cout << log_str;
 
     return gdd_segment;
+    */
   }
 
  private:

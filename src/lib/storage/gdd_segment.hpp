@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "base_gdd_segment.hpp"
 #include "storage/vector_compression/base_compressed_vector.hpp"
@@ -12,21 +13,21 @@ namespace opossum {
 class BaseCompressedVector;
 
 /**
- * @brief Segment implementing GDD encoding
- *
- * Uses vector compression schemes for its attribute vector.
+ * Segment implementing GDD compression in the following way:
+ * 
+ *  - Fixed 8-bit deviations
+ *  - No deviation lookup hashmap
+ *  - Deviations are not deduplicated
  */
-template <typename T, typename = std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
-class GddSegment : public BaseGddSegment {
+template <typename T, typename=std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
+class GddSegmentV1Fixed : public BaseGddSegment {
  public:
-  explicit GddSegment(const std::shared_ptr<const pmr_vector<T>>& dictionary,
-                             const std::shared_ptr<const BaseCompressedVector>& attribute_vector,
-                             const std::shared_ptr<const pmr_vector<uint32_t>>& _gdd_profile);
-
-  // returns an underlying dictionary
-  std::shared_ptr<const pmr_vector<T>> dictionary() const;
   
-  std::shared_ptr<const pmr_vector<uint32_t>> gdd_profile() const;
+  using DEV_BITS = 8; 
+
+  explicit GddSegmentV1Fixed(const std::shared_ptr<const pmr_vector<T>>& bases,
+                            const std::shared_ptr<const compact::vector<unsigned, DEV_BITS>>& deviations,
+                            const std::shared_ptr<const compact::vector<size_t>>& base_indexes);
 
   /**
    * @defgroup AbstractSegment interface
@@ -37,14 +38,15 @@ class GddSegment : public BaseGddSegment {
 
   std::optional<T> get_typed_value(const ChunkOffset chunk_offset) const {
     // performance critical - not in cpp to help with inlining
+    
     // Look up dictionary index (ValueID) from compressed attribute vector
-    const auto value_id = _decompressor->get(chunk_offset);
-    if (value_id == _dictionary->size()) {
+    const auto base_idx = base_indexes_ptr->at(chunk_offset);
+    if (base_idx == null_value_id()){
       // requested value is a NULL
       return std::nullopt;
     }
-    // Not null, look up the actual value from the dictionary 
-    return (*_dictionary)[value_id];
+    // Not null, reconstruct the value 
+    return get(chunk_offset)
   }
 
   ChunkOffset size() const final;
@@ -58,48 +60,39 @@ class GddSegment : public BaseGddSegment {
    * @defgroup AbstractEncodedSegment interface
    * @{
    */
-  std::optional<CompressedVectorType> compressed_vector_type() const final;
+  std::optional<CompressedVectorType> compressed_vector_type() const final { return std::nullopt; };
   /**@}*/
 
   /**
    * @defgroup BaseGddSegment interface
    * @{
    */
-  EncodingType encoding_type() const final;
+  EncodingType encoding_type() const final { return EncodingType::GDD; };
 
-  // Returns the first value ID that refers to a value >= the search value and INVALID_VALUE_ID if all values are
-  // smaller than the search value. Here, INVALID_VALUE_ID does not represent NULL (which isn't stored in the
-  // dictionary anyway). Imagine a segment with values from 1 to 10. A scan for `WHERE a < 12` would retrieve
-  // `lower_bound(12) == INVALID_VALUE_ID` and compare all values in the attribute vector to `< INVALID_VALUE_ID`.
-  // Thus, returning INVALID_VALUE_ID makes comparisons much easier. However, the caller has to make sure that
-  // NULL values stored in the attribute vector (stored with a value ID of unique_values_count()) are excluded.
-  // See #1471 for a deeper discussion.
-  ValueID lower_bound(const AllTypeVariant& value) const final;
-
-  // Returns the first value ID that refers to a value > the search value and INVALID_VALUE_ID if all values are
-  // smaller than or equal to the search value (see also lower_bound).
-  ValueID upper_bound(const AllTypeVariant& value) const final;
-
-  AllTypeVariant value_of_value_id(const ValueID value_id) const final;
-
-  ValueID::base_type unique_values_count() const final;
-
-  std::shared_ptr<const BaseCompressedVector> attribute_vector() const final;
 
   ValueID null_value_id() const final;
 
+  void segment_vs_value_table_scan(
+    const PredicateCondition& condition, 
+    const AllTypeVariant& query_value, 
+    const ChunkID chunk_id, 
+    RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) const ;
+
   /**@}*/
 
- protected:
-  const std::shared_ptr<const pmr_vector<T>> _dictionary;
-  //const std::shared_ptr<const pmr_vector<T>> _bases;
-  const std::shared_ptr<const BaseCompressedVector> _attribute_vector;
-  std::unique_ptr<BaseVectorDecompressor> _decompressor;
-  const std::shared_ptr<const pmr_vector<uint32_t>> _gdd_profile;
+ private:
+
+  const std::shared_ptr<const pmr_vector<T>> bases;
+  const std::shared_ptr<const compact::vector<unsigned, DEV_BITS>> deviations;
+  const std::shared_ptr<const compact::vector<size_t>> base_indexes;
+
+  T get(const ChunkOffset chunk_offset);
+
 };
 
-//EXPLICITLY_DECLARE_DATA_TYPES(GddSegment);
-extern template class GddSegment<int32_t>;
-extern template class GddSegment<int64_t>;
+//EXPLICITLY_DECLARE_DATA_TYPES(GddSegmentV1Fixed);
+extern template class GddSegmentV1Fixed<int32_t>;
+extern template class GddSegmentV1Fixed<int64_t>;
 
 }  // namespace opossum
