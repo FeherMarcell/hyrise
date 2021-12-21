@@ -200,7 +200,7 @@ class BinaryWriter {
    *
    */
   template <typename T>
-  static void _write_segment(const GddSegment<T>& gdd_segment, bool column_is_nullable,
+  static void _write_segment(const GddSegmentV1Fixed<T>& gdd_segment, bool column_is_nullable,
                              std::ofstream& ofstream);
 
   /**

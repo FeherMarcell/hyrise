@@ -76,15 +76,15 @@ auto create_iterable_from_segment(const FrameOfReferenceSegment<T, Enabled>& seg
 }
 
 template <typename T, typename Enabled, bool EraseSegmentType>
-auto create_iterable_from_segment(const GddSegment<T, Enabled>& segment) {
+auto create_iterable_from_segment(const GddSegmentV1Fixed<T, Enabled>& segment) {
 #ifdef HYRISE_ERASE_GDD
   PerformanceWarning("GddSegmentIterable erased by compile-time setting");
-  return AnySegmentIterable<T>(GddSegmentIterable<T, pmr_vector<T>>(segment));
+  return AnySegmentIterable<T>(GddSegmentV1FixedIterable<T, pmr_vector<T>>(segment));
 #else
   if constexpr (EraseSegmentType) {
     return create_any_segment_iterable<T>(segment);
   } else {
-    return GddSegmentIterable<T, pmr_vector<T>>{segment};
+    return GddSegmentV1FixedIterable<T, pmr_vector<T>>{segment};
   }
 #endif
 }

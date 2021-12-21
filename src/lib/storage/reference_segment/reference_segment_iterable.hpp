@@ -75,7 +75,7 @@ class ReferenceSegmentIterable : public SegmentIterable<ReferenceSegmentIterable
 
 // GDDTODO: this could be done nice
 #ifdef HYRISE_ERASE_GDD
-          if constexpr (std::is_same_v<SegmentType, GddSegment<T>>){
+          if constexpr (std::is_same_v<SegmentType, GddSegmentV1Fixed<T>>){
             if constexpr (std::is_same_v<T, int32_t>) return  
             if constexpr (std::is_same_v<T, int64_t>) return  
             if constexpr (std::is_same_v<T, float>) return  

@@ -35,7 +35,7 @@ constexpr auto encoded_segment_for_type = hana::make_map(
     hana::make_pair(enum_c<EncodingType, EncodingType::FixedStringDictionary>,
                     template_c<FixedStringDictionarySegment>),
     hana::make_pair(enum_c<EncodingType, EncodingType::FrameOfReference>, template_c<FrameOfReferenceSegment>),
-    hana::make_pair(enum_c<EncodingType, EncodingType::GDD>, template_c<GddSegment>),
+    hana::make_pair(enum_c<EncodingType, EncodingType::GDD>, template_c<GddSegmentV1Fixed>),
     hana::make_pair(enum_c<EncodingType, EncodingType::LZ4>, template_c<LZ4Segment>));
 // When adding something here, please also append all_segment_encoding_specs in the BaseTest class.
 

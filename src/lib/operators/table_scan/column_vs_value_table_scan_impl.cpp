@@ -177,7 +177,7 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
     iterable.with_iterators(position_filter, [&](auto it, auto end) {
       // dictionary.size() represents a NULL in the AttributeVector. For some PredicateConditions, we can
       // avoid explicitly checking for it, since the condition (e.g., LessThan) would never return true for
-      // dictionary.size() anyway.
+      // NULL anyway.
       if (predicate_condition == PredicateCondition::Equals ||
           predicate_condition == PredicateCondition::LessThanEquals ||
           predicate_condition == PredicateCondition::LessThan) {
