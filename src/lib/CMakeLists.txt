@@ -454,7 +454,8 @@ set(
     storage/frame_of_reference_segment.cpp
     storage/frame_of_reference_segment/frame_of_reference_encoder.hpp
     storage/frame_of_reference_segment/frame_of_reference_segment_iterable.hpp
-    storage/gdd_segment/gdd_lsb.hpp
+    storage/gdd_segment/gdd_lsb/permute.hpp
+    storage/gdd_segment/gdd_lsb/gdd_lsb.hpp
     storage/gdd_segment.hpp
     storage/gdd_segment.cpp
     storage/gdd_segment/gdd_encoder.hpp
