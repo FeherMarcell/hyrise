@@ -48,7 +48,7 @@ add_compile_options(-pthread -Wno-unknown-warning-option)
 
 # Use HYRISE_RELAXED_BUILD to disable strict warnings (e.g., when testing an unsupported compiler or an unsupported system)
 if (NOT "${HYRISE_RELAXED_BUILD}")
-    add_compile_options(-pthread -Wall -Wextra -pedantic -Werror -Wno-unused-parameter -Wno-dollar-in-identifier-extension -Wno-unknown-pragmas -Wno-subobject-linkage -Wno-deprecated-dynamic-exception-spec)
+    add_compile_options(-pthread -Wall -Wextra -pedantic -Werror -Wfatal-errors -Wno-unused-parameter -Wno-dollar-in-identifier-extension -Wno-unknown-pragmas -Wno-subobject-linkage -Wno-deprecated-dynamic-exception-spec)
 
     # -Wno-deprecated-dynamic-exception-spec is needed for jemalloc, at least for the older version that we are using
 
@@ -101,5 +101,5 @@ add_subdirectory(plugins)
 
 # No clang-tidy for the following subfolders
 set(CMAKE_CXX_CLANG_TIDY "")
-add_subdirectory(benchmark)
-add_subdirectory(test)
+#add_subdirectory(benchmark)
+#add_subdirectory(test)

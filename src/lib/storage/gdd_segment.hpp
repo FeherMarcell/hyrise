@@ -8,6 +8,8 @@
 #include "storage/vector_compression/base_compressed_vector.hpp"
 #include "types.hpp"
 
+#include "compact_vector.hpp"
+
 namespace opossum {
 
 class BaseCompressedVector;
@@ -22,12 +24,16 @@ class BaseCompressedVector;
 template <typename T, typename=std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
 class GddSegmentV1Fixed : public BaseGddSegment {
  public:
-  
-  using DEV_BITS = 8; 
 
-  explicit GddSegmentV1Fixed(const std::shared_ptr<const pmr_vector<T>>& bases,
-                            const std::shared_ptr<const compact::vector<unsigned, DEV_BITS>>& deviations,
-                            const std::shared_ptr<const compact::vector<size_t>>& base_indexes);
+  // Constant 8-bit GDD deviations 
+  static const auto deviation_bits = 8U;
+
+  using DeviationsCV = compact::vector<unsigned, deviation_bits>;
+  
+  explicit GddSegmentV1Fixed(const std::shared_ptr<const std::vector<T>>& bases,
+                            const std::shared_ptr<const DeviationsCV>& deviations,
+                            const std::shared_ptr<const compact::vector<size_t>>& base_indexes,
+                            const T& min_value=0, const T& max_value=0);
 
   /**
    * @defgroup AbstractSegment interface
@@ -36,17 +42,18 @@ class GddSegmentV1Fixed : public BaseGddSegment {
 
   AllTypeVariant operator[](const ChunkOffset chunk_offset) const final;
 
+  // TODO this returns teh base, not the actual value!!
   std::optional<T> get_typed_value(const ChunkOffset chunk_offset) const {
     // performance critical - not in cpp to help with inlining
     
     // Look up dictionary index (ValueID) from compressed attribute vector
-    const auto base_idx = base_indexes_ptr->at(chunk_offset);
+    const auto base_idx = base_indexes->at(chunk_offset);
     if (base_idx == null_value_id()){
       // requested value is a NULL
       return std::nullopt;
     }
     // Not null, reconstruct the value 
-    return get(chunk_offset)
+    return get(chunk_offset);
   }
 
   ChunkOffset size() const final;
@@ -83,11 +90,12 @@ class GddSegmentV1Fixed : public BaseGddSegment {
 
  private:
 
-  const std::shared_ptr<const pmr_vector<T>> bases;
-  const std::shared_ptr<const compact::vector<unsigned, DEV_BITS>> deviations;
+  const std::shared_ptr<const std::vector<T>> bases;
+  const std::shared_ptr<const DeviationsCV> deviations;
   const std::shared_ptr<const compact::vector<size_t>> base_indexes;
+  const T min_value, max_value; 
 
-  T get(const ChunkOffset chunk_offset);
+  T get(const ChunkOffset& chunk_offset) const ;
 
 };
 

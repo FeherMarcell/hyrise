@@ -5,11 +5,24 @@
 #include "permute.hpp"
 
 #include <iostream>
+#include <chrono>
+
 
 namespace gdd_lsb
 {
     using namespace std;
+    using namespace std::chrono;
 
+    template<typename T, unsigned DEV_BITS> 
+    static T make_base(const T& value){
+        return value >> DEV_BITS;
+    }
+
+    template<typename T, unsigned DEV_BITS> 
+    static T reconstruct_value(const T& base, const unsigned& deviation){
+        return (base << DEV_BITS) | deviation;
+    }
+    
     namespace std_bases
     {
         template<typename T, unsigned DEV_BITS> 
@@ -28,55 +41,45 @@ namespace gdd_lsb
                 }
             }
 
-
+            
             {   // Fill bases vector, shift out deviation bits
                 bases_out.resize(data.size());
                 size_t base_idx = 0;
                 for(const auto& d : data){
-                    bases_out[base_idx++] = d >> DEV_BITS;
+                    //bases_out[base_idx++] = d >> DEV_BITS;
+                    bases_out[base_idx++] = make_base<T, DEV_BITS>(d);
                 }
             }
             
-            vector<size_t> base_indexes(data.size());
-            {   // Sort bases and record the sort order in base indexes
-                const auto base_permutation = permute::sort_permutation<T>(bases_out);
-                permute::apply_permutation_in_place<T>(bases_out, base_permutation);
-
-                // Convert permutation to base indexes
-                for(auto i=0U ; i<base_permutation.size() ; ++i){
-                    base_indexes[base_permutation[i]] = i;
-                }
-            }
             
-
-            {   // Remove duplicate bases and adjust base indexes
-                auto last_idx = bases_out.size();
-                for(auto i=1 ; i<last_idx ; ++i){
-                    if(bases_out[i] == bases_out[i-1]){
-                        // Remove duplicate base 
-                        // (they are sorted, duplicates are guaranteed to be consecutive)
-                        bases_out.erase(bases_out.begin() + i);
-
-                        // Every index that is 'i' or larger in base_indexes_out should be decreased by 1
-                        for(auto j=0 ; j<base_indexes.size() ; ++j){
-                            if(base_indexes[j] >= i){
-                                --base_indexes[j];
-                            }
-                        }
-                        
-                        // Adjust last index and loop iterator
-                        --last_idx;
-                        --i;
-                    }
-                }
-                // remove the unused bases
+            {   // Remove duplicate bases and sort
+                std::sort(bases_out.begin(), bases_out.end());
+                bases_out.erase(std::unique(bases_out.begin(), bases_out.end()), bases_out.cend());
                 bases_out.shrink_to_fit();
             }
 
-            {   // copy base indexes to base_indexes_ptr using the fewest possible bits
+            vector<size_t> base_indexes(data.size());
+            {   // Fill base indexes
+                T base;
+                size_t base_index_offset = 0;
+                for(const auto& el : data){
+                    // Generate the base of this data element
+                    base = make_base<T, DEV_BITS>(el);
+
+                    // Find base in bases_out and record its index 
+                    base_indexes[base_index_offset++] = std::distance(
+                        bases_out.cbegin(), 
+                        std::lower_bound(bases_out.cbegin(), bases_out.cend(), base)
+                    );
+                }
+            }
+
+            {   // Determine number of bits for base indexes and fill compact vector
                 const auto max_base_index = bases_out.size()-1;
-                const auto bits_needed = (unsigned)std::ceil(log2(max_base_index + 1U));
+                const auto bits_needed = (unsigned) std::ceil(log2(max_base_index + 1U));
+                // Now we can instantiate the compact vector
                 base_indexes_ptr = std::make_shared<compact::vector<size_t>>(bits_needed);
+                // Add base indexes
                 base_indexes_ptr->resize(base_indexes.size());
                 for(auto i=0U ; i<base_indexes.size() ; ++i){
                     (*base_indexes_ptr)[i] = base_indexes[i];
@@ -84,6 +87,10 @@ namespace gdd_lsb
             }
 
         }
+
+        
+
+        
 
         template<typename T, unsigned DEV_BITS> 
         static T get(const size_t idx, 
@@ -96,8 +103,25 @@ namespace gdd_lsb
             const auto base_index = (*base_indexes_ptr)[idx];
             const auto base = bases[base_index];
             // Make space for the deviation (shift left) and add deviation bits
-            return (base << DEV_BITS) | deviation;
+            //return (base << DEV_BITS) | deviation;
+            return reconstruct_value<T, DEV_BITS>(base, deviation);
         }
+
+        template<typename T, unsigned DEV_BITS> 
+        static T get(const size_t idx, 
+                    const std::shared_ptr<const std::vector<T>>& bases, 
+                    const std::shared_ptr<const compact::vector<unsigned, DEV_BITS>>& deviations,
+                    const std::shared_ptr<const compact::vector<size_t>>& base_indexes_ptr)
+        {
+            //return get<T, DEV_BITS>(idx, (*bases), (*deviations), base_indexes_ptr);
+            const auto deviation = (*deviations)[idx];
+            const auto base_index = (*base_indexes_ptr)[idx];
+            const auto base = (*bases)[base_index];
+            // Make space for the deviation (shift left) and add deviation bits
+            //return (base << DEV_BITS) | deviation;
+            return reconstruct_value<T, DEV_BITS>(base, deviation);
+        }
+
 
         template<typename T, unsigned DEV_BITS> 
         static std::vector<T> decode(const std::vector<T>& bases, 
@@ -182,14 +206,14 @@ namespace gdd_lsb
 
             {   // Remove duplicate bases and adjust base indexes
                 auto last_idx = bases.size();
-                for(auto i=1 ; i<last_idx ; ++i){
+                for(auto i=1U ; i<last_idx ; ++i){
                     if(bases[i] == bases[i-1]){
                         // Remove duplicate base 
                         // (they are sorted, duplicates are guaranteed to be consecutive)
                         bases.erase(bases.begin() + i);
 
                         // Every index that is 'i' or larger in base_indexes_out should be decreased by 1
-                        for(auto j=0 ; j<base_indexes_out.size() ; ++j){
+                        for(auto j=0U ; j<base_indexes_out.size() ; ++j){
                             if(base_indexes_out[j] >= i){
                                 --base_indexes_out[j];
                             }
@@ -310,7 +334,7 @@ namespace gdd_lsb
          * 
          */
         template<typename T>
-        static std::vector<uint32_t> get_bases_num(
+        static std::vector<uint32_t> make_bases_num(
             const std::vector<T>& data, 
             const uint8_t sample_percent=10, 
             const SAMPLE_MODE mode=SAMPLE_MODE::FIRST_N,

@@ -9,16 +9,18 @@
 
 namespace opossum {
 
-template <typename T, typename Dictionary>
-class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentIterable<T, Dictionary>> {
+template <typename T>
+class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegmentV1FixedIterable<T>> {
  public:
   using ValueType = T;
 
-  explicit GddSegmentIterable(const GddSegment<T>& segment)
-      : _segment{segment}, _dictionary(segment.dictionary()) {}
+  explicit GddSegmentV1FixedIterable(const GddSegmentV1Fixed<T>& segment)
+      : _segment{segment} {}
 
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
+    return;
+    /*
     _segment.access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment.size();
     _segment.access_counter[SegmentAccessCounter::AccessType::Dictionary] += _segment.size();
 
@@ -33,10 +35,13 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
 
       functor(begin, end);
     });
+      */
   }
 
   template <typename Functor, typename PosListType>
   void _on_with_iterators(const std::shared_ptr<PosListType>& position_filter, const Functor& functor) const {
+    return;
+    /*
     _segment.access_counter[SegmentAccessCounter::access_type(*position_filter)] += position_filter->size();
     _segment.access_counter[SegmentAccessCounter::AccessType::Dictionary] += position_filter->size();
 
@@ -53,10 +58,11 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
           position_filter->cend()};
       functor(begin, end);
     });
+    */
   }
 
   size_t _on_size() const { return _segment.size(); }
-
+  /*
  private:
   template <typename CompressedVectorIterator, typename GddIteratorType>
   class Iterator
@@ -147,20 +153,21 @@ class GddSegmentIterable : public PointAccessibleSegmentIterable<GddSegmentItera
     ValueID _null_value_id;
     mutable Decompressor _attribute_decompressor;
   };
-
+  */
  private:
-  const GddSegment<T>& _segment;
-  std::shared_ptr<const Dictionary> _dictionary;
+  const GddSegmentV1Fixed<T>& _segment;
 };
+
+
 
 template <typename T>
 struct is_gdd_segment_iterable {
   static constexpr auto value = false;
 };
 
-template <template <typename T, typename Dictionary> typename Iterable, typename T, typename Dictionary>
-struct is_gdd_segment_iterable<Iterable<T, Dictionary>> {
-  static constexpr auto value = std::is_same_v<GddSegmentIterable<T, Dictionary>, Iterable<T, Dictionary>>;
+template <template <typename T> typename Iterable, typename T>
+struct is_gdd_segment_iterable<Iterable<T>> {
+  static constexpr auto value = std::is_same_v<GddSegmentV1FixedIterable<T>, Iterable<T>>;
 };
 
 template <typename T>

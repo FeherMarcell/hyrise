@@ -51,7 +51,11 @@ void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
   // @TODO add optimized GDD implementation 
   if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
     _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
-  } else {
+  } 
+  else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
+    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+  }
+  else {
     _scan_generic_segment(segment, chunk_id, matches, position_filter);
   }
 }
@@ -180,12 +184,16 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
 
 
 void ColumnVsValueTableScanImpl::_scan_gdd_segment(
-    const BaseGddSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
-    const std::shared_ptr<const AbstractPosList>& position_filter) {
-  
-  // TODO write me
-  return;
-  
+    const BaseGddSegment& base_gdd_segment, const ChunkID chunk_id, RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) 
+{
+  // GDD Segment implements predicate evaluation directly
+  base_gdd_segment.segment_vs_value_table_scan(
+        predicate_condition, 
+        value, 
+        chunk_id, 
+        matches,
+        position_filter);  
 }
 
 
@@ -277,71 +285,5 @@ bool ColumnVsValueTableScanImpl::_value_matches_none(const BaseDictionarySegment
   }
 }
 
-// TODO make a better solution than full code copy
-ValueID ColumnVsValueTableScanImpl::_gdd_get_search_value_id(const BaseGddSegment& segment) const {
-  switch (predicate_condition) {
-    case PredicateCondition::Equals:
-    case PredicateCondition::NotEquals:
-    case PredicateCondition::LessThan:
-    case PredicateCondition::GreaterThanEquals:
-      return segment.lower_bound(value);
-
-    case PredicateCondition::LessThanEquals:
-    case PredicateCondition::GreaterThan:
-      return segment.upper_bound(value);
-
-    default:
-      Fail("Unsupported comparison type encountered");
-  }
-}
-
-
-// TODO make a better solution than full code copy
-bool ColumnVsValueTableScanImpl::_gdd_value_matches_all(const BaseGddSegment& segment,
-                                                    const ValueID search_value_id) const {
-  switch (predicate_condition) {
-    case PredicateCondition::Equals:
-      return search_value_id != INVALID_VALUE_ID && segment.value_of_value_id(search_value_id) == value &&
-             segment.unique_values_count() == size_t{1u};
-
-    case PredicateCondition::NotEquals:
-      return search_value_id == INVALID_VALUE_ID || segment.value_of_value_id(search_value_id) != value;
-
-    case PredicateCondition::LessThan:
-    case PredicateCondition::LessThanEquals:
-      return search_value_id == INVALID_VALUE_ID;
-
-    case PredicateCondition::GreaterThanEquals:
-    case PredicateCondition::GreaterThan:
-      return search_value_id == ValueID{0u};
-
-    default:
-      Fail("Unsupported comparison type encountered");
-  }
-}
-
-// TODO make a better solution than full code copy
-bool ColumnVsValueTableScanImpl::_gdd_value_matches_none(const BaseGddSegment& segment,
-                                                     const ValueID search_value_id) const {
-  switch (predicate_condition) {
-    case PredicateCondition::Equals:
-      return search_value_id == INVALID_VALUE_ID || value != segment.value_of_value_id(search_value_id);
-
-    case PredicateCondition::NotEquals:
-      return search_value_id != INVALID_VALUE_ID && value == segment.value_of_value_id(search_value_id) &&
-             segment.unique_values_count() == size_t{1u};
-
-    case PredicateCondition::LessThan:
-    case PredicateCondition::LessThanEquals:
-      return search_value_id == ValueID{0u};
-
-    case PredicateCondition::GreaterThan:
-    case PredicateCondition::GreaterThanEquals:
-      return search_value_id == INVALID_VALUE_ID;
-
-    default:
-      Fail("Unsupported comparison type encountered");
-  }
-}
 
 }  // namespace opossum

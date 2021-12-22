@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "constant_mappings.hpp"
 #include "hyrise.hpp"
@@ -254,9 +255,9 @@ std::shared_ptr<FrameOfReferenceSegment<T>> BinaryParser::_import_frame_of_refer
 template <typename T>
 std::shared_ptr<GddSegmentV1Fixed<T>> BinaryParser::_import_gdd_segment(std::ifstream& file, ChunkOffset row_count) {
   // GDDTODO: write me
-  auto bases = make_shared<std::vector<T>>();
-  auto deviations = make_shared<compact::vector<unsigned, 8>>();
-  auto base_indexes = make_shared<compact::vector<size_t>>();
+  auto bases = std::make_shared<std::vector<T>>();
+  auto deviations = std::make_shared<compact::vector<unsigned, 8>>();
+  auto base_indexes = std::make_shared<compact::vector<size_t>>();
   
   return std::make_shared<GddSegmentV1Fixed<T>>(bases, deviations, base_indexes);
 }
