@@ -32,8 +32,8 @@ class GddSegmentV1Fixed : public BaseGddSegment {
   
   explicit GddSegmentV1Fixed(const std::shared_ptr<const std::vector<T>>& bases,
                             const std::shared_ptr<const DeviationsCV>& deviations,
-                            const std::shared_ptr<const compact::vector<size_t>>& base_indexes,
-                            const T& min_value=0, const T& max_value=0);
+                            const std::shared_ptr<const compact::vector<size_t>>& reconstruction_list,
+                            const T& segment_min=0, const T& segment_max=0, const size_t num_nulls=0);
 
   /**
    * @defgroup AbstractSegment interface
@@ -47,7 +47,7 @@ class GddSegmentV1Fixed : public BaseGddSegment {
     // performance critical - not in cpp to help with inlining
     
     // Look up dictionary index (ValueID) from compressed attribute vector
-    const auto base_idx = base_indexes->at(chunk_offset);
+    const auto base_idx = reconstruction_list->at(chunk_offset);
     if (base_idx == null_value_id()){
       // requested value is a NULL
       return std::nullopt;
@@ -85,15 +85,25 @@ class GddSegmentV1Fixed : public BaseGddSegment {
     const ChunkID chunk_id, 
     RowIDPosList& matches,
     const std::shared_ptr<const AbstractPosList>& position_filter) const ;
+  
+  // Add all rows to the matches, optionally without NULLs
+  void _all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls=false) const;
 
   /**@}*/
 
- private:
 
-  const std::shared_ptr<const std::vector<T>> bases;
-  const std::shared_ptr<const DeviationsCV> deviations;
-  const std::shared_ptr<const compact::vector<size_t>> base_indexes;
-  const T min_value, max_value; 
+  private:
+
+  // GDD bases
+  const std::shared_ptr<const std::vector<T>> bases; 
+  // GDD deviations
+  const std::shared_ptr<const DeviationsCV> deviations; 
+  // Which base is used for the ith deviation to reconstruct the original value
+  const std::shared_ptr<const compact::vector<size_t>> reconstruction_list; 
+  // Minimum and maximum value that appears in this segment
+  const T segment_min, segment_max; 
+  // Number of NULLs in this segment
+  const size_t num_nulls; 
 
   T get(const ChunkOffset& chunk_offset) const ;
 

@@ -39,6 +39,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     // construct the actual dictionary and attribute vector.
     std::vector<T> dense_values;    // contains the actual values (no NULLs)
     std::vector<bool> null_values;  // bitmap to mark NULL values
+    size_t num_nulls = 0;           // count the NULLs
     
     // Extract the (dense) values and nulls from the input segment
     segment_iterable.with_iterators([&](auto segment_it, const auto segment_end) {
@@ -54,28 +55,36 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
           dense_values.push_back(segment_value);
         } else {
           null_values[current_position] = true;
+          ++num_nulls;
         }
       }
     });
 
     
-    // TODO handle NULL values!!
+    // TODO represent NULL values in reconstruction list as bases.size() (smallest invalid base index)!
     
     using DeviationsVector = compact::vector<unsigned, GddSegmentV1Fixed<T>::deviation_bits>;
     std::vector<T> bases;
     DeviationsVector deviations;
-    // base_indexes must be a shared pointer, because we cannot instantiate a compact vector 
+    // reconstruction_list must be a shared pointer, because we cannot instantiate a compact vector 
     // without specifying the number of bits (which will be done in gdd_lsb::encode)
-    std::shared_ptr<compact::vector<size_t>> base_indexes; 
+    std::shared_ptr<compact::vector<size_t>> reconstruction_list; 
 
-    gdd_lsb::std_bases::encode(dense_values, bases, deviations, base_indexes);
-    std::cout  << "Bases: " << bases.size() << " / " << null_values.size() << std::endl;
+    // MAGIC start
+    gdd_lsb::std_bases::encode(dense_values, bases, deviations, reconstruction_list);
+    // MAGIC end
+
+    const auto segment_min = *(std::min_element(dense_values.begin(), dense_values.end()));
+    const auto segment_max = *(std::max_element(dense_values.begin(), dense_values.end()));
+    
+    // null_values has an entry for each stored element, which is True for NULLs
+    std::cout << "Bases: " << bases.size() << " / " << null_values.size() << std::endl;
     const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
         std::make_shared<std::vector<T>>(bases), 
         std::make_shared<DeviationsVector>(deviations), 
-        base_indexes,
-        *(std::min_element(dense_values.begin(), dense_values.end())),
-        *(std::max_element(dense_values.begin(), dense_values.end()))
+        reconstruction_list,
+        segment_min, segment_max,
+        num_nulls
       );
     
     return gdd_segment;
