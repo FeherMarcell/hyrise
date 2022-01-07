@@ -108,7 +108,7 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
 
   const auto search_value_id = _get_search_value_id(segment);
 
-  std::cout << "Search ValueID: " << search_value_id << std::endl;
+  //std::cout << "Search ValueID: " << search_value_id << std::endl;
 
   /**
    * Early Outs
@@ -125,7 +125,7 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
   auto iterable = create_iterable_from_attribute_vector(segment);
 
   if (_value_matches_all(segment, search_value_id)) {
-    std::cout << "All values in Segment are match" << std::endl;
+    //std::cout << "All values in Segment are match" << std::endl;
     if (_column_is_nullable) {
       // We still have to check for NULLs
       iterable.with_iterators(position_filter, [&](auto it, auto end) {
@@ -156,13 +156,13 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
   }
 
   if (_value_matches_none(segment, search_value_id)) {
-    std::cout << "None of the values in Segment are match" << std::endl;
+    //std::cout << "None of the values in Segment are match" << std::endl;
     ++num_chunks_with_early_out;
     return;
   }
 
   _with_operator_for_dict_segment_scan([&](auto predicate_comparator) {
-    std::cout << "Scan dict segment" << std::endl;
+    //std::cout << "Scan dict segment" << std::endl;
     auto comparator = [predicate_comparator, search_value_id](const auto& position) {
       return predicate_comparator(position.value(), search_value_id);
     };
@@ -214,7 +214,7 @@ void ColumnVsValueTableScanImpl::_scan_sorted_segment(const AbstractSegment& seg
                                                          predicate_condition, boost::get<ColumnDataType>(value));
 
         sorted_segment_search.scan_sorted_segment([&](auto begin, auto end) {
-          std::cout << "Sorted segment search" << std::endl;
+          //std::cout << "Sorted segment search" << std::endl;
           sorted_segment_search._write_rows_to_matches(begin, end, chunk_id, matches, position_filter);
         });
       });

@@ -17,7 +17,7 @@ class AttributeVectorIterable : public PointAccessibleSegmentIterable<AttributeV
       : _attribute_vector{*segment.attribute_vector()},
         _null_value_id{null_value_id},
         _access_counter(segment.access_counter) {
-          std::cout << "AttributeVectorIterable created" << std::endl;
+          //std::cout << "AttributeVectorIterable created" << std::endl;
         }
 
   template <typename Functor>
@@ -64,7 +64,7 @@ class AttributeVectorIterable : public PointAccessibleSegmentIterable<AttributeV
     using ValueType = ValueID;
     explicit Iterator(const ValueID null_value_id, CompressedVectorIterator&& attribute_it, ChunkOffset chunk_offset)
         : _null_value_id{null_value_id}, _attribute_it{std::move(attribute_it)}, _chunk_offset{chunk_offset} {
-          std::cout << "Iterator<CompressedVectorIterator> from AttributeVectorIterable created" << std::endl;
+          //std::cout << "Iterator<CompressedVectorIterator> from AttributeVectorIterable created" << std::endl;
         }
 
    private:
@@ -117,7 +117,7 @@ class AttributeVectorIterable : public PointAccessibleSegmentIterable<AttributeV
                                                                                                 position_filter_it)},
           _null_value_id{null_value_id},
           _attribute_decompressor{std::move(attribute_decompressor)} {
-            std::cout << "PointAccessIterator<CompressedVectorIterator> from AttributeVectorIterable created" << std::endl;
+            //std::cout << "PointAccessIterator<CompressedVectorIterator> from AttributeVectorIterable created" << std::endl;
           }
 
    private:
