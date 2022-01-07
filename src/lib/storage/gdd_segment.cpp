@@ -30,7 +30,7 @@ GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const std::shared_ptr<const std::vect
       segment_max{segment_max},
       num_nulls{num_nulls}
 {
-  // NULL is represented by bases.size() in the reconstruction list. 
+  // NULL is represented by bases->size() in the reconstruction list. 
   // INVALID_VALUE_ID, which is the highest possible number in ValueID::base_type
   // (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a GddSegmentV1Fixed of the max size Chunk::MAX_SIZE, those two values overlap.
@@ -172,11 +172,11 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 
       case PredicateCondition::LessThan:
       {
-        if (typed_query_value <= segment_max){
+        if (typed_query_value <= segment_min){
           // No match
           return;
         }
-        else if (typed_query_value > segment_min){
+        else if (typed_query_value > segment_max){
           // All
           _all_to_matches(chunk_id, matches);
           return;
@@ -186,11 +186,11 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 
       case PredicateCondition::LessThanEquals:
       {
-        if (typed_query_value < segment_max){
+        if (typed_query_value < segment_min){
           // No match
           return;
         }
-        else if (typed_query_value >= segment_min){
+        else if (typed_query_value >= segment_max){
           // All
           _all_to_matches(chunk_id, matches);
           return;
@@ -204,7 +204,7 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
   
 
   // Base indexes that need to be scanned
-  vector<size_t> base_indexes;
+  vector<size_t> base_indexes_to_scan;
   /**
   * Note: we are using a vector of indexes instead of two iterators (start, end),
   * because with PredicateCondition::NotEquals we need to scan all base ranges except
@@ -213,19 +213,22 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
   * but a vector of indexes can represent this case the same way as all other cases.
   */ 
   
-  
   { // Step 2: Find base indexes that need to be scanned 
-  
+
     // Calculate the base of the query value
     const auto query_value_base = gdd_lsb::make_base<T, deviation_bits>(typed_query_value);
     
     // We always need the lower bound (e.g. greater or equal), not upper_bound (strictly greater) 
     // regardless of the operator
     const auto lower_it = std::lower_bound(bases->cbegin(), bases->cend(), query_value_base);
-    
+    //Assert(lower_it != bases->end(), "No lower bound found! This should have been an early exit!");
+
     // Determine if the query value is inside an existing base range, or an empty region
-    const bool is_query_base_present = (lower_it != bases.end() && *lower_it == query_value_base);
-    
+    const bool is_query_base_present = (*lower_it == query_value_base);
+    const size_t query_value_base_idx = std::distance(bases->begin(), lower_it);
+    //std::cout << "Number of bases: " << bases->size() << std::endl;
+    //std::cout << "Query base present: " << (is_query_base_present ? "yes" : "no") << ", base index: " << query_value_base_idx << std::endl;
+
     // Figure out which bases need to be scanned based on the operator and lower bound
     switch(condition) {
       case PredicateCondition::Equals:
@@ -236,7 +239,8 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
         }
         
         // The found base is the only one that needs to be checked
-        base_indexes.push_back(std::distance(bases.begin(), lower_it));
+        base_indexes_to_scan.push_back(query_value_base_idx);
+        // No matches possible in other base ranges
         break;
       }
 
@@ -250,11 +254,11 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
         }
 
         // Query value is in one of the existing base ranges 
-        // This base have to be scanned, but all other values are matches
-        const auto query_value_base_idx = std::distance(bases.begin(), lower_it);
-        base_indexes.push_back(query_value_base_idx);
         
-        // Add all RowIDs from all other bases
+        // This base have to be scanned, but all other values are matches
+        base_indexes_to_scan.push_back(query_value_base_idx);
+        
+        // Add all other complete base ranges
         { // Preallocate 'matches'
 
           // TODO if we know how many values (deviations) map to the query value base, we can 
@@ -262,25 +266,12 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
           
           // Eager preallocation: we know that at least 1 value belongs to bases[query_value_base_idx]
           // but don't know how many exactly, so just allocate the maximum possible size
-          matches.reserve(reconstruction_list.size()-1);
+          matches.reserve(reconstruction_list->size()-1);
         }
-
-        // Iterate the reconstruction list and add all IDs where a different base is used
-        if(num_nulls == 0){
-          // No NULLs
-          for(auto i=0U ; i<reconstruction_list.size() ; ++i){
-            if(reconstruction_list[i] != query_value_base_idx){
-              matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}})
-            }
-          }
-        }
-        else{
-          // there are NULLs, filter them out
-          const auto null_base_index = null_value_id();
-          for(auto i=0U ; i<reconstruction_list.size() ; ++i){
-            if(reconstruction_list[i] != query_value_base_idx && reconstruction_list[i] != null_base_index){
-              matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}})
-            }
+        //std::cout << "Adding bases 0 - " << bases->size() << std::endl;
+        for(auto base_idx=0U ; base_idx<bases->size() ; ++base_idx){
+          if(base_idx != query_value_base_idx){
+            _base_idx_to_matches(base_idx, chunk_id, matches);
           }
         }
         break;
@@ -289,9 +280,6 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
       case PredicateCondition::GreaterThan:
       case PredicateCondition::GreaterThanEquals:
       {
-        // There must be a base that is greater or equal to the query value base,
-        // because the end of the segment range must be covered by a base range
-        Assert(lower_it != bases.end(), "Early exit should have been taken!");
 
         /**
          * TODO if the operator is GreaterThan and the query value is 
@@ -305,13 +293,23 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
          * However, since 127 is the last value of base range #1 (64-127), we
          * know without scanning that no values from this range will be >127.
          */
-        
 
-        // Add all base indexes from (including) lower_it to the end of bases
-        const auto lower_idx = std::distance(bases.begin(), lower_it);
-        base_indexes.reserve(bases.size() - lower_idx + 1);
-        for(auto i=lower_idx ; i<bases.size() ; ++i){
-          base_indexes.push_back(i);
+
+        if(is_query_base_present){
+          // Scan the base where the query hits
+          base_indexes_to_scan.push_back(query_value_base_idx);
+
+          if(query_value_base_idx == bases->size()-1){
+            // Last base is scanned, nothing after it
+            break;
+          }
+        }
+
+        // Add higher base indexes 
+        const size_t start_base_idx = is_query_base_present ? query_value_base_idx+1 : query_value_base_idx;
+        //std::cout << "Adding bases " << start_base_idx << " - " << bases->size() << std::endl;
+        for(auto base_idx=start_base_idx ; base_idx < bases->size() ; ++base_idx){
+          _base_idx_to_matches(base_idx, chunk_id, matches);
         }
         break;
       }
@@ -319,18 +317,24 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
       case PredicateCondition::LessThan:
       case PredicateCondition::LessThanEquals:
       {
-        // There must be a base that is greater or equal to the query value base,
-        // because the end of the segment range must be covered by a base range
-        Assert(lower_it != bases.end(), "Early exit should have been taken!");
         
+        // Add all base indexes from the beginning up to lower_idx.
+        if(is_query_base_present){
+          // Scan the base where the query hits
+          base_indexes_to_scan.push_back(query_value_base_idx);
 
-        // Add all base indexes from the beginning, up to lower_idx.
-        // Add 'lower_idx' itself only if the query hit an existing base range
-        const auto lower_idx = std::distance(bases.begin(), lower_it) - (is_query_base_present ? 0 : 1);
+          if(query_value_base_idx == 0){
+            // First base is scanned, nothing before it
+            break;
+          }
+        }
 
-        base_indexes.reserve(lower_idx + 1);
-        for(auto i=0U ; i<lower_idx ; ++i){
-          base_indexes.push_back(i);
+
+        // Add lower base indexes
+        const size_t end_base_idx = (is_query_base_present) ? query_value_base_idx-1 : query_value_base_idx;
+        //std::cout << "Adding bases 0 - " << end_base_idx << std::endl;
+        for(auto base_idx=0U ; base_idx <= end_base_idx ; ++base_idx){
+          _base_idx_to_matches(base_idx, chunk_id, matches);
         }
         break;
       }
@@ -340,17 +344,86 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 
   }
 
-  { // Step 3: Scan the bases in base_indexes (TODO: this could be parallelized)
+  // Step 3: Scan the base(s)
+  // TODO (do we need to sort rowIDs in matches?)
+  _scan_bases(base_indexes_to_scan, condition, typed_query_value, chunk_id, matches);
+  
+  return;
+}
+
+template <typename T, typename U>
+void GddSegmentV1Fixed<T, U>::_scan_bases(
+    const std::vector<size_t>& base_indexes, 
+    const PredicateCondition& condition, 
+    const T& typed_query_value,
+    const ChunkID chunk_id, 
+    RowIDPosList& matches) const
+{
+  /*
+  std::cout << "Scanning " << base_indexes.size() << "/" << bases->size() << " bases: "; 
+  for(const auto& i : base_indexes){ std::cout << "#" << i << " "; }
+  std::cout << std::endl;
+  */
+
+  // We will use this to skip NULLs in the result set
+  const auto null_base_idx = null_value_id();
+
+  // Convert the condition (enum) to a bool Functor
+  with_comparator(condition, [&](auto predicate_comparator) {
     
+    for(auto i=0U ; i<reconstruction_list->size() ; ++i) {
+      const auto current_base_idx = reconstruction_list->at(i);
+      
+      // Check if the current base index is one of the bases we need to scan
+      // (base_indexes is sorted, we can search with lower_bound)
+      bool scan_current_value;
+      if(base_indexes.size() == 1){
+        scan_current_value = (base_indexes.front() == current_base_idx);
+      }
+      else{
+        const auto base_index_lower = std::lower_bound(base_indexes.cbegin(), base_indexes.cend(), current_base_idx);
+        scan_current_value = *base_index_lower == current_base_idx;
+      }
+
+      if(scan_current_value) {
+        // Yes, scan this value
+        
+        // 'i' is a deviation index , reconstruction_list[i] is the base index
+        const auto dev_idx = i;
+        const auto base_idx = reconstruction_list->at(i);
+
+        if(base_idx == null_base_idx){
+          // Skip NULLs
+          continue;
+        }
+
+        // Reconstruct the original value and run comparator
+        // If the base is zero we don't need to reconstruct, just use the deviation directly
+        const T reconstructed_val = (bases->at(base_idx) == 0) ? 
+                                      deviations->at(dev_idx) : 
+                                      gdd_lsb::reconstruct_value<T, deviation_bits>(bases->at(base_idx), deviations->at(dev_idx));
+        // Evaluate the predicate
+        if(predicate_comparator(reconstructed_val, typed_query_value)){
+          matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned) dev_idx}});
+        }
+        
+      }
+    }
+  });
+  
+  /**
+   *  SCAN A SINGLE BASE RANGE (less efficient than collecting deviations from all base ranges at once)
     vector<size_t> deviation_indexes;
+
     { // Find all deviation indexes that use this base (TODO null values!)
+
       for(auto i=0U ; i<reconstruction_list->size() ; ++i){
         if(reconstruction_list->at(i) == base_idx){
           deviation_indexes.push_back(i);
         }
       }
       Assert(!deviation_indexes.empty(), "No deviations for base #"+std::to_string(base_idx));
-      std::cout << deviation_indexes.size() << " deviations use base #" << base_idx << endl;
+      //std::cout << deviation_indexes.size() << " deviations use base #" << base_idx << endl;
     }
 
     { // Reconstruct original values and evaluate predicate to find matches in this segment (this is independent of the predicate!)
@@ -373,19 +446,17 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
         } 
       });
     }
-  }
-
-
-  return;
+  */
 }
 
 template <typename T, typename U>
 void GddSegmentV1Fixed<T, U>::_all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls) const {
+  //std::cout << "Adding all ChunkOffsets of the whole segment" << std::endl;
   
   if(include_nulls == true || num_nulls == 0) {
     // ALL values are a match 
-    matches.reserve(matches.size() + reconstruction_list.size());
-    for(auto i=0U ; i<reconstruction_list.size() ; ++i){
+    matches.reserve(matches.size() + reconstruction_list->size());
+    for(auto i=0U ; i<reconstruction_list->size() ; ++i){
       matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
     }
   }
@@ -394,20 +465,30 @@ void GddSegmentV1Fixed<T, U>::_all_to_matches(const ChunkID& chunk_id, RowIDPosL
     // Filter for NULLs
 
     // We know how many NULLs are there, so we can preallocate the correct size
-    matches.reserve(matches.size() + reconstruction_list.size() - num_nulls);
+    matches.reserve(matches.size() + reconstruction_list->size() - num_nulls);
 
     // Cache the base index that represents NULLs
     const auto null_base_index = null_value_id();
 
     // Iterate the reconstruction list and only add a match if it's not a NULL
-    for(auto i=0U ; i<reconstruction_list.size() ; ++i){
-      if(reconstruction_list[i] != null_base_index){
+    for(auto i=0U ; i<reconstruction_list->size() ; ++i){
+      if(reconstruction_list->at(i) != null_base_index){
         matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
       }
     }
   }
 }
 
+template <typename T, typename U>
+void GddSegmentV1Fixed<T, U>::_base_idx_to_matches(const size_t base_idx, const ChunkID& chunk_id, RowIDPosList& matches) const {
+  //std::cout << "Adding all ChunkOffsets of base #" << base_idx << std::endl;
+  // Find all ChunkOffsets (deviations) that belong to 'base_idx'
+  for(auto i=0U ; i<reconstruction_list->size() ; ++i){
+    if(reconstruction_list->at(i) == base_idx){
+      matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
+    }
+  }
+}
 
 template <typename T, typename U>
 ChunkOffset GddSegmentV1Fixed<T, U>::size() const {

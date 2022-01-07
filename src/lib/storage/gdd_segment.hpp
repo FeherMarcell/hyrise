@@ -85,9 +85,20 @@ class GddSegmentV1Fixed : public BaseGddSegment {
     const ChunkID chunk_id, 
     RowIDPosList& matches,
     const std::shared_ptr<const AbstractPosList>& position_filter) const ;
+
+  // Scan the given bases
+  void _scan_bases(
+    const std::vector<size_t>& base_indexes, 
+    const PredicateCondition& condition, 
+    const T& typed_query_value, 
+    const ChunkID chunk_id, 
+    RowIDPosList& matches) const ;
   
-  // Add all rows to the matches, optionally without NULLs
+  // Add all rows to matches, optionally without NULLs
   void _all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls=false) const;
+
+  // Add rows to matches that use the given base idx
+  void _base_idx_to_matches(const size_t base_idx, const ChunkID& chunk_id, RowIDPosList& matches) const ;
 
   /**@}*/
 
