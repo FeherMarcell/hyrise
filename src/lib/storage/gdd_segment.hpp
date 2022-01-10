@@ -95,7 +95,7 @@ class GddSegmentV1Fixed : public BaseGddSegment {
     RowIDPosList& matches) const ;
   
   // Add all rows to matches, optionally without NULLs
-  void _all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls=false) const;
+  void _all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls=false, bool are_matches_preallocated=false) const;
 
   // Add rows to matches that use the given base idx
   void _base_idx_to_matches(const size_t base_idx, const ChunkID& chunk_id, RowIDPosList& matches) const ;

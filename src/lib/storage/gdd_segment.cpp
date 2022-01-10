@@ -5,6 +5,7 @@
 #include <string>
 
 #include "resolve_type.hpp"
+#include "type_comparison.hpp" // for with_comparator
 
 #include "utils/assert.hpp"
 #include "utils/performance_warning.hpp"
@@ -12,10 +13,11 @@
 
 #include "gdd_segment/gdd_lsb/gdd_lsb.hpp"
 
-#include "type_comparison.hpp" // for with_comparator
+#include <chrono>
 
 namespace opossum {
 using namespace std;
+using namespace std::chrono;
 
 template <typename T, typename U>
 GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const std::shared_ptr<const std::vector<T>>& _bases,
@@ -119,6 +121,7 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 {
   const auto typed_query_value = boost::get<T>(query_value);
 
+  //const auto t1 = high_resolution_clock::now();
   { // Step 1: early exit based on segment range
     switch(condition) {
 
@@ -202,33 +205,35 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
     }
   }
   
-
+  //const auto t2 = high_resolution_clock::now();
   // Base indexes that need to be scanned
   vector<size_t> base_indexes_to_scan;
-  /**
-  * Note: we are using a vector of indexes instead of two iterators (start, end),
-  * because with PredicateCondition::NotEquals we need to scan all base ranges except
-  * for the one where the query value is. 
-  * This may result in a 'hole' that cannot be naturally expressed with iterators
-  * but a vector of indexes can represent this case the same way as all other cases.
-  */ 
+
+  // Aggressively preallocate matches for the maximum size
+  matches.reserve(matches.size() + reconstruction_list->size());
   
-  { // Step 2: Find base indexes that need to be scanned 
+  { // Step 2: Find base indexes that need to be scanned, add complete bases to matches
 
     // Calculate the base of the query value
     const auto query_value_base = gdd_lsb::make_base<T, deviation_bits>(typed_query_value);
     
+    //const auto t21 = high_resolution_clock::now();
+
     // We always need the lower bound (e.g. greater or equal), not upper_bound (strictly greater) 
     // regardless of the operator
     const auto lower_it = std::lower_bound(bases->cbegin(), bases->cend(), query_value_base);
     //Assert(lower_it != bases->end(), "No lower bound found! This should have been an early exit!");
+    
+    //const auto t22 = high_resolution_clock::now();
 
     // Determine if the query value is inside an existing base range, or an empty region
     const bool is_query_base_present = (*lower_it == query_value_base);
     const size_t query_value_base_idx = std::distance(bases->begin(), lower_it);
     //std::cout << "Number of bases: " << bases->size() << std::endl;
     //std::cout << "Query base present: " << (is_query_base_present ? "yes" : "no") << ", base index: " << query_value_base_idx << std::endl;
+    //const auto t23 = high_resolution_clock::now();
 
+    
     // Figure out which bases need to be scanned based on the operator and lower bound
     switch(condition) {
       case PredicateCondition::Equals:
@@ -249,7 +254,9 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
         if(!is_query_base_present){
           // Early exit 2: The base of the query value is not present, 
           // therefore no base range is excluded from the result.
-          _all_to_matches(chunk_id, matches);
+          const bool include_nulls = false;
+          const bool matches_preallocated = true;
+          _all_to_matches(chunk_id, matches, include_nulls, matches_preallocated);
           return;
         }
 
@@ -259,19 +266,10 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
         base_indexes_to_scan.push_back(query_value_base_idx);
         
         // Add all other complete base ranges
-        { // Preallocate 'matches'
-
-          // TODO if we know how many values (deviations) map to the query value base, we can 
-          // preallocate space in 'matches' precisely
-          
-          // Eager preallocation: we know that at least 1 value belongs to bases[query_value_base_idx]
-          // but don't know how many exactly, so just allocate the maximum possible size
-          matches.reserve(reconstruction_list->size()-1);
-        }
-        //std::cout << "Adding bases 0 - " << bases->size() << std::endl;
-        for(auto base_idx=0U ; base_idx<bases->size() ; ++base_idx){
-          if(base_idx != query_value_base_idx){
-            _base_idx_to_matches(base_idx, chunk_id, matches);
+        #pragma omp simd
+        for(auto i=0U ; i<reconstruction_list->size() ; ++i){
+          if(reconstruction_list->at(i) != query_value_base_idx){
+            matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
           }
         }
         break;
@@ -307,9 +305,11 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 
         // Add higher base indexes 
         const size_t start_base_idx = is_query_base_present ? query_value_base_idx+1 : query_value_base_idx;
-        //std::cout << "Adding bases " << start_base_idx << " - " << bases->size() << std::endl;
-        for(auto base_idx=start_base_idx ; base_idx < bases->size() ; ++base_idx){
-          _base_idx_to_matches(base_idx, chunk_id, matches);
+        #pragma omp simd
+        for(auto i=0U ; i<reconstruction_list->size() ; ++i){
+          if(reconstruction_list->at(i) >= start_base_idx){
+            matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
+          }
         }
         break;
       }
@@ -329,12 +329,13 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
           }
         }
 
-
         // Add lower base indexes
         const size_t end_base_idx = (is_query_base_present) ? query_value_base_idx-1 : query_value_base_idx;
-        //std::cout << "Adding bases 0 - " << end_base_idx << std::endl;
-        for(auto base_idx=0U ; base_idx <= end_base_idx ; ++base_idx){
-          _base_idx_to_matches(base_idx, chunk_id, matches);
+        #pragma omp simd
+        for(auto i=0U ; i<reconstruction_list->size() ; ++i){
+          if(reconstruction_list->at(i) <= end_base_idx){
+            matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
+          }
         }
         break;
       }
@@ -344,10 +345,18 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 
   }
 
-  // Step 3: Scan the base(s)
-  // TODO (do we need to sort rowIDs in matches?)
+  //const auto t3 = high_resolution_clock::now();
+
+  // Step 3: Scan the base or bases (in case of BETWEEN operator)
   _scan_bases(base_indexes_to_scan, condition, typed_query_value, chunk_id, matches);
+  //const auto t4 = high_resolution_clock::now();
   
+  /*
+  cout << "Total time: " << duration<double, std::milli>(t4-t1).count() << " ms\n"
+      << " Early exit: " << duration<double, std::milli>(t2-t1).count() << " ms\n" 
+      << " Find base indexes & add complete bases: " << duration<double, std::milli>(t3-t2).count() << " ms\n" 
+      << " Scan bases: " << duration<double, std::milli>(t4-t3).count() << " ms" << endl;
+  */
   return;
 }
 
@@ -364,13 +373,15 @@ void GddSegmentV1Fixed<T, U>::_scan_bases(
   for(const auto& i : base_indexes){ std::cout << "#" << i << " "; }
   std::cout << std::endl;
   */
+  //const auto t1 = high_resolution_clock::now();
 
   // We will use this to skip NULLs in the result set
   const auto null_base_idx = null_value_id();
 
-  // Convert the condition (enum) to a bool Functor
+  
+  /* v1, slow
   with_comparator(condition, [&](auto predicate_comparator) {
-    
+
     for(auto i=0U ; i<reconstruction_list->size() ; ++i) {
       const auto current_base_idx = reconstruction_list->at(i);
       
@@ -407,6 +418,32 @@ void GddSegmentV1Fixed<T, U>::_scan_bases(
           matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned) dev_idx}});
         }
         
+      }
+    }
+  });
+  */
+
+  with_comparator(condition, [&](auto predicate_comparator) {
+
+    for(const auto& current_base_idx : base_indexes){
+      // Find reconstruction_list entries for the current base index
+      #pragma omp simd
+      for(auto i=0U ; i<reconstruction_list->size() ; ++i) {
+        if(reconstruction_list->at(i) != current_base_idx || reconstruction_list->at(i) == null_base_idx){
+          continue;
+        }
+        // scan base
+        const auto dev_idx = i;
+
+        // Reconstruct the original value and run comparator
+        // If the base is zero we don't need to reconstruct, just use the deviation directly
+        const T reconstructed_val = (bases->at(current_base_idx) == 0) ? 
+                                      deviations->at(dev_idx) : 
+                                      gdd_lsb::reconstruct_value<T, deviation_bits>(bases->at(current_base_idx), deviations->at(dev_idx));
+        // Evaluate the predicate
+        if(predicate_comparator(reconstructed_val, typed_query_value)){
+          matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned) dev_idx}});
+        }
       }
     }
   });
@@ -447,29 +484,40 @@ void GddSegmentV1Fixed<T, U>::_scan_bases(
       });
     }
   */
+  //const auto t2 = high_resolution_clock::now();
+  //cout << "Scanning " << base_indexes.size() << " bases took " << duration<double, std::milli>(t2-t1).count() << " ms" << endl;
 }
 
 template <typename T, typename U>
-void GddSegmentV1Fixed<T, U>::_all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls) const {
+void GddSegmentV1Fixed<T, U>::_all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls, bool are_matches_preallocated) const {
   //std::cout << "Adding all ChunkOffsets of the whole segment" << std::endl;
+  //const auto t1 = high_resolution_clock::now();
   
+  const auto match_insert_idx = matches.size();
+  if(!are_matches_preallocated){
+    // Preallocate 'matches' if it has not been already
+    //matches.reserve(matches.size() + reconstruction_list->size());
+    matches.resize(matches.size() + reconstruction_list->size(), RowID{chunk_id, ChunkOffset{0}});
+  }
+
   if(include_nulls == true || num_nulls == 0) {
     // ALL values are a match 
-    matches.reserve(matches.size() + reconstruction_list->size());
+    #pragma omp simd
     for(auto i=0U ; i<reconstruction_list->size() ; ++i){
-      matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
+      matches[match_insert_idx+i].chunk_offset = i;
+      //matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
     }
   }
 
-  else {
-    // Filter for NULLs
+  else {  // Filter for NULLs
+    
 
     // We know how many NULLs are there, so we can preallocate the correct size
-    matches.reserve(matches.size() + reconstruction_list->size() - num_nulls);
+    //matches.reserve(matches.size() + reconstruction_list->size() - num_nulls);
 
     // Cache the base index that represents NULLs
     const auto null_base_index = null_value_id();
-
+    #pragma omp simd
     // Iterate the reconstruction list and only add a match if it's not a NULL
     for(auto i=0U ; i<reconstruction_list->size() ; ++i){
       if(reconstruction_list->at(i) != null_base_index){
@@ -477,17 +525,17 @@ void GddSegmentV1Fixed<T, U>::_all_to_matches(const ChunkID& chunk_id, RowIDPosL
       }
     }
   }
+  /*
+  const auto t2 = high_resolution_clock::now();
+  std::cout << "Adding all ChunkOffsets to matches took " << duration<double, std::milli>(t2-t1).count() << " ms" ;
+  if(!are_matches_preallocated){ cout << " (including preallocating matches)"; }
+  std::cout << std::endl;
+  */
 }
 
 template <typename T, typename U>
 void GddSegmentV1Fixed<T, U>::_base_idx_to_matches(const size_t base_idx, const ChunkID& chunk_id, RowIDPosList& matches) const {
-  //std::cout << "Adding all ChunkOffsets of base #" << base_idx << std::endl;
-  // Find all ChunkOffsets (deviations) that belong to 'base_idx'
-  for(auto i=0U ; i<reconstruction_list->size() ; ++i){
-    if(reconstruction_list->at(i) == base_idx){
-      matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned)i}});
-    }
-  }
+  return;
 }
 
 template <typename T, typename U>
