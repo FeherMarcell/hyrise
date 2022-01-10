@@ -653,7 +653,6 @@ int Console::_change_encoding(const std::string& args) {
   }
 
   out("Encoding \"" + tablename + "\" using " + encoding + "\n");
-  std::vector<ChunkID> immutable_chunks;
   
   // All: start=0, end=table->chunk_count()
   // Given chunk_idx: start=chunk_idx, end=chunk_idx
@@ -661,17 +660,20 @@ int Console::_change_encoding(const std::string& args) {
   ChunkID end = (chunk_idx >= 0) ? ChunkID(chunk_idx) : table->chunk_count();
 
   for (ChunkID chunk_id = start; chunk_id < end; ++chunk_id) {
+    const auto chunk = table->get_chunk(chunk_id);
+    
     // encode the segment using the specified encoding
-    const auto encoded_segment = ChunkEncoder::encode_segment(table->get_chunk(chunk_id)->get_segment(column_id), 
+    const auto encoded_segment = ChunkEncoder::encode_segment(
+                                  chunk->get_segment(column_id), 
                                   table->column_data_type(column_id),
-                                  SegmentEncodingSpec{encoding_type->second});
+                                  SegmentEncodingSpec{encoding_type->second}
+                                );
     // Replace the original representation with the new one
-    table->get_chunk(chunk_id)->replace_segment(column_id, encoded_segment);
-    out("Chunk " + std::to_string(chunk_id) + " encoded.\n");
+    chunk->replace_segment(column_id, encoded_segment);
+    out("Chunk " + std::to_string(chunk_id) + " encoded to "+encoding+"\n");
   }
   
   out("All chunks encoded to " + encoding + "\n");
-  //ChunkEncoder::encode_chunks(table, immutable_chunks, SegmentEncodingSpec{encoding_type->second});
 
   return ReturnCode::Ok;
 }
