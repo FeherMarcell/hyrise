@@ -101,5 +101,5 @@ add_subdirectory(plugins)
 
 # No clang-tidy for the following subfolders
 set(CMAKE_CXX_CLANG_TIDY "")
-#add_subdirectory(benchmark)
+add_subdirectory(benchmark)
 #add_subdirectory(test)

@@ -17,8 +17,12 @@
 #include "type_comparison.hpp"
 
 #include <iostream>
+#include <chrono>
 
 namespace opossum {
+
+using namespace std;
+using namespace std::chrono;
 
 ColumnVsValueTableScanImpl::ColumnVsValueTableScanImpl(const std::shared_ptr<const Table>& in_table,
                                                        const ColumnID column_id,
@@ -37,27 +41,56 @@ std::string ColumnVsValueTableScanImpl::description() const { return "ColumnVsVa
 void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
     const AbstractSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
     const std::shared_ptr<const AbstractPosList>& position_filter) {
+  
   const auto& chunk_sorted_by = _in_table->get_chunk(chunk_id)->individually_sorted_by();
+  const auto chunk_size = _in_table->get_chunk(chunk_id)->size();
+
+  if(!position_filter->empty() && position_filter->size() != chunk_size) {
+    std::cout << "Position Filter with " << position_filter->size() << " / " << chunk_size << " elements" << std::endl;
+    /*
+    for(const auto& el : *position_filter){
+      std::cout << el << " ";
+    }
+    std::cout << std::endl;
+    */
+  }
+
+  bool sorted_segment_scanned = false;
+  //const auto t1 = high_resolution_clock::now();
 
   if (!chunk_sorted_by.empty()) {
     for (const auto& sorted_by : chunk_sorted_by) {
       if (sorted_by.column == _column_id) {
+
         _scan_sorted_segment(segment, chunk_id, matches, position_filter, sorted_by.sort_mode);
         ++num_chunks_with_binary_search;
-        return;
+        sorted_segment_scanned = true;
+        break;
+        //return;
       }
     }
   }
-  // @TODO add optimized GDD implementation 
-  if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
-    _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
-  } 
-  else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
-    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+  if(!sorted_segment_scanned){
+
+    if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
+      _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
+    } 
+    else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
+      _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+    }
+    else {
+      _scan_generic_segment(segment, chunk_id, matches, position_filter);
+    }
   }
-  else {
-    _scan_generic_segment(segment, chunk_id, matches, position_filter);
+  /*
+  const auto t2 = high_resolution_clock::now();
+  std::cout << "ColumnVsValue took " << duration<double, std::milli>(t2-t1).count() << " ms";
+  if(sorted_segment_scanned){
+    std::cout << " on a sorted segment";
   }
+  std::cout << std::endl;
+  */
+
 }
 
 void ColumnVsValueTableScanImpl::_scan_generic_segment(
@@ -125,7 +158,9 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
   auto iterable = create_iterable_from_attribute_vector(segment);
 
   if (_value_matches_all(segment, search_value_id)) {
-    //std::cout << "All values in Segment are match" << std::endl;
+    //std::cout << "DictSegment: all values are match" << std::endl;
+    //const auto t1 = high_resolution_clock::now();
+
     if (_column_is_nullable) {
       // We still have to check for NULLs
       iterable.with_iterators(position_filter, [&](auto it, auto end) {
@@ -151,18 +186,20 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
         matches[output_start_offset + chunk_offset] = RowID{chunk_id, chunk_offset};
       }
     }
+    //const auto t2 = high_resolution_clock::now();
+    //std::cout << "Adding all ChunkOffsets to matches took " << duration<double, std::milli>(t2-t1).count() << " ms" << std::endl;
 
     return;
   }
 
   if (_value_matches_none(segment, search_value_id)) {
-    //std::cout << "None of the values in Segment are match" << std::endl;
+    std::cout << "DictSegment: None of the values in Segment are match" << std::endl;
     ++num_chunks_with_early_out;
     return;
   }
 
   _with_operator_for_dict_segment_scan([&](auto predicate_comparator) {
-    //std::cout << "Scan dict segment" << std::endl;
+    std::cout << "Scan dict segment" << std::endl;
     auto comparator = [predicate_comparator, search_value_id](const auto& position) {
       return predicate_comparator(position.value(), search_value_id);
     };

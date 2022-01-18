@@ -59,6 +59,7 @@ class AbstractTableScanImpl {
     // To reduce compile time, SIMD scanning is not used for for ColumnVsColumnScans. Also, string comparisons are more
     // expensive than the scan itself, so we disable SIMD for these, too.
     
+    //std::cout << "Skipping SIMD scan" << std::endl;
     
     if constexpr (std::is_same_v<RightIterator, std::false_type> &&
                   !std::is_same_v<std::decay_t<decltype(left_it->value())>, pmr_string>) {
@@ -67,6 +68,8 @@ class AbstractTableScanImpl {
     }
     
 
+    
+    //std::cout << "Scanning " << std::distance(left_it, left_end) << " elements" << std::endl;
     // Do the remainder the easy way. If we did not use the SIMD optimization above, left_it was not yet touched, so we
     // iterate over the entire input data.
     for (; left_it != left_end; ++left_it) {
@@ -170,6 +173,7 @@ class AbstractTableScanImpl {
         // Fast path: If this is a sequential iterator, we know that the chunk offsets are incremented by 1, so we can
         // save us the memory lookup
         const auto first_offset = left_it_for_offsets->chunk_offset();
+        //std::cout << "sequential lookup" << std::endl;
 
         // NOLINTNEXTLINE
         {}  // clang-format off
@@ -182,7 +186,7 @@ class AbstractTableScanImpl {
         left_it_for_offsets += BLOCK_SIZE;
       } else {
         // Slow path - the chunk offsets are not guaranteed to be linear
-
+        //std::cout << "not sequential lookup" << std::endl;
         // NOLINTNEXTLINE
         {}  // clang-format off
         #pragma omp simd safelen(BLOCK_SIZE)
