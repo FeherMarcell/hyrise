@@ -43,44 +43,33 @@ void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
     const std::shared_ptr<const AbstractPosList>& position_filter) {
   
   const auto& chunk_sorted_by = _in_table->get_chunk(chunk_id)->individually_sorted_by();
-  const auto chunk_size = _in_table->get_chunk(chunk_id)->size();
-
+  //const auto chunk_size = _in_table->get_chunk(chunk_id)->size();
+  /*
   if(!position_filter->empty() && position_filter->size() != chunk_size) {
     std::cout << "Position Filter with " << position_filter->size() << " / " << chunk_size << " elements" << std::endl;
-    /*
-    for(const auto& el : *position_filter){
-      std::cout << el << " ";
-    }
-    std::cout << std::endl;
-    */
   }
+  */
 
-  bool sorted_segment_scanned = false;
   //const auto t1 = high_resolution_clock::now();
 
   if (!chunk_sorted_by.empty()) {
     for (const auto& sorted_by : chunk_sorted_by) {
       if (sorted_by.column == _column_id) {
-
         _scan_sorted_segment(segment, chunk_id, matches, position_filter, sorted_by.sort_mode);
         ++num_chunks_with_binary_search;
-        sorted_segment_scanned = true;
-        break;
-        //return;
+        return;
       }
     }
   }
-  if(!sorted_segment_scanned){
 
-    if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
-      _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
-    } 
-    else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
-      _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
-    }
-    else {
-      _scan_generic_segment(segment, chunk_id, matches, position_filter);
-    }
+  if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
+    _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
+  } 
+  else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
+    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+  }
+  else {
+    _scan_generic_segment(segment, chunk_id, matches, position_filter);
   }
   /*
   const auto t2 = high_resolution_clock::now();
@@ -193,13 +182,13 @@ void ColumnVsValueTableScanImpl::_scan_dictionary_segment(
   }
 
   if (_value_matches_none(segment, search_value_id)) {
-    std::cout << "DictSegment: None of the values in Segment are match" << std::endl;
+    //std::cout << "DictSegment: None of the values in Segment are match" << std::endl;
     ++num_chunks_with_early_out;
     return;
   }
 
   _with_operator_for_dict_segment_scan([&](auto predicate_comparator) {
-    std::cout << "Scan dict segment" << std::endl;
+    //std::cout << "Scan dict segment" << std::endl;
     auto comparator = [predicate_comparator, search_value_id](const auto& position) {
       return predicate_comparator(position.value(), search_value_id);
     };
