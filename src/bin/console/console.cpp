@@ -661,13 +661,21 @@ int Console::_change_encoding(const std::string& args) {
 
   for (ChunkID chunk_id = start; chunk_id < end; ++chunk_id) {
     const auto chunk = table->get_chunk(chunk_id);
-    
+    const auto segment_rows_before = chunk->get_segment(column_id)->size();
+
     // encode the segment using the specified encoding
     const auto encoded_segment = ChunkEncoder::encode_segment(
                                   chunk->get_segment(column_id), 
                                   table->column_data_type(column_id),
                                   SegmentEncodingSpec{encoding_type->second}
                                 );
+    const auto segment_rows_after = encoded_segment->size();
+
+    if(segment_rows_after != segment_rows_before){
+      out("Rows in chunk "+std::to_string(chunk_id)+" changed from "+std::to_string(segment_rows_before)+" to "+std::to_string(segment_rows_after)+"!");
+      return ReturnCode::Error;
+    }
+
     // Replace the original representation with the new one
     chunk->replace_segment(column_id, encoded_segment);
     out("Chunk " + std::to_string(chunk_id) + " encoded to "+encoding+"\n");
