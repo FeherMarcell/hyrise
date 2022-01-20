@@ -160,6 +160,7 @@ Console::Console()
   register_command("unload_plugin", std::bind(&Console::_unload_plugin, this, std::placeholders::_1));
   
   register_command("show_memory", std::bind(&Console::_show_memory_usage, this, std::placeholders::_1));
+  register_command("show_encoding", std::bind(&Console::_show_encoding, this, std::placeholders::_1));
   register_command("change_encoding_to", std::bind(&Console::_change_encoding, this, std::placeholders::_1));
 }
 
@@ -454,7 +455,8 @@ int Console::_help(const std::string&) {
   out("                                                  previously executed query is visualized.\n");
   out("  txinfo                                  - Print information on the current transaction\n");
   out("  show_memory TABLENAME                   - Print memory usage of all columns of the given table\n");
-  out("  change_encoding_to ENCODING TABLENAME COLUMNNAME [CHUNK_IDX] - Change the encoding of a column. All chunks are re-encoded if you do not specify the chunk index\n");
+  out("  show_encoding [TABLENAME]               - List encoding of columns of a table (or all tables) \n");
+  out("  change_encoding_to\n    ENCODING TABLENAME COLUMNNAME [CHUNK_IDX] - Change the encoding of a column. All chunks are re-encoded if you do not specify the chunk index\n");
   out("  pwd                                     - Print current working directory\n");
   out("  load_plugin FILE                        - Load and start plugin stored at FILE\n");
   out("  unload_plugin NAME                      - Stop and unload the plugin libNAME.so/dylib (also clears the query cache)\n");  // NOLINT
@@ -755,6 +757,66 @@ int Console::_show_memory_usage(const std::string& args){
         // Print just the name and total memory
         const auto total = std::accumulate(memory_per_column[col_idx].begin(), memory_per_column[col_idx].end(), 0);
         out(tablename+"."+column_names[col_idx] + ", " + std::to_string(total) + "\n");
+      }
+    }
+  }
+
+  return ReturnCode::Ok;
+}
+
+int Console::_show_encoding(const std::string& args){
+  std::vector<std::string> arguments = trim_and_split(args);
+
+  std::vector<std::string> tables;
+  if(arguments.size() > 0 && !arguments[0].empty()){
+
+    const auto tablename = arguments[0];
+
+    if (!Hyrise::get().storage_manager.has_table(tablename)) {
+      out("Table \"" + tablename + "\" Does not exist.\n");
+      return ReturnCode::Error;
+    }
+
+    tables.push_back(tablename);
+  }
+  else {
+    // Add all tables
+    tables = Hyrise::get().storage_manager.table_names();
+  }
+
+  for(const auto& tablename : tables){
+    // Get table
+    const auto& table = Hyrise::get().storage_manager.get_table(tablename);
+
+    out(tablename+"\n");
+
+    // Allocate and zero-initialize vectors for memory and encoding of each segment per column
+    const auto columns_num = table->column_count();
+    const auto column_names = table->column_names();
+
+    // We assume that all chunks are encoded the same way, so only check the first chunk
+    if(table->chunk_count() == 0){
+      out(" [empty table]\n");
+      continue;
+    }
+
+    const auto chunk = table->get_chunk(ChunkID{0});
+    size_t col_idx = 0;
+    for(ColumnID colid(0) ; colid < columns_num ; ++colid){
+      out(" "+column_names[col_idx++]+": ");
+
+      auto segment = chunk->get_segment(colid);
+      
+      // Figure out the encoding type by casting
+      if(dynamic_cast<BaseDictionarySegment*>(&*segment)){
+        out("Dictionary\n");
+      }
+      else if(dynamic_cast<BaseGddSegment*>(&*segment)){
+        out("GDD\n");
+      }
+      // TODO add other segment types
+      else{
+        out("Value\n");
       }
     }
   }

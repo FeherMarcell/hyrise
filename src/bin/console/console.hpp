@@ -114,6 +114,7 @@ class Console : public Singleton<Console> {
   int _generate_tpcds(const std::string& args);
   int _load_table(const std::string& args);
   int _show_memory_usage(const std::string& args);
+  int _show_encoding(const std::string& args);
   int _change_encoding(const std::string& args);
   int _export_table(const std::string& args);
   int _exec_script(const std::string& script_file);
