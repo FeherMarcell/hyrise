@@ -108,6 +108,13 @@ size_t GddSegmentV1Fixed<T, U>::memory_usage(const MemoryUsageCalculationMode mo
 
 template <typename T, typename U>
 T GddSegmentV1Fixed<T, U>::get(const ChunkOffset& chunk_offset) const {
+  // TODO check if null?
+  DebugAssert(chunk_offset < reconstruction_list->size(), "GddSegmentV1Fixed::get chunkoffset larger than reconstruction_list!");
+  DebugAssert(chunk_offset < deviations->size(), "GddSegmentV1Fixed::get chunkoffset larger than deviations!");
+  const auto base_idx = reconstruction_list->at(chunk_offset);
+
+  DebugAssert(base_idx < bases->size(), "GddSegmentV1Fixed::get chunkoffset points to NULL!");
+
   return gdd_lsb::std_bases::get((size_t)chunk_offset, bases, deviations, reconstruction_list);
 }
 

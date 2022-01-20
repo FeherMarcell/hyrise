@@ -76,8 +76,14 @@ class GddSegmentV1Fixed : public BaseGddSegment {
    */
   EncodingType encoding_type() const final { return EncodingType::GDD; };
 
-
   ValueID null_value_id() const final;
+
+  /**@}*/
+  
+  // Access to internal data structures for GddSegmentIterable
+  std::shared_ptr<const std::vector<T>> get_bases() const { return bases; };
+  std::shared_ptr<const DeviationsCV> get_deviations() const { return deviations; };
+  std::shared_ptr<const compact::vector<size_t>> get_reconstruction_list() const { return reconstruction_list; };
 
   void segment_vs_value_table_scan(
     const PredicateCondition& condition, 
@@ -100,7 +106,9 @@ class GddSegmentV1Fixed : public BaseGddSegment {
   // Add rows to matches that use the given base idx
   void _base_idx_to_matches(const size_t base_idx, const ChunkID& chunk_id, RowIDPosList& matches) const ;
 
-  /**@}*/
+  // Reconstruct the value at a given position
+  T get(const ChunkOffset& chunk_offset) const ;
+  
 
 
   private:
@@ -116,7 +124,7 @@ class GddSegmentV1Fixed : public BaseGddSegment {
   // Number of NULLs in this segment
   const size_t num_nulls; 
 
-  T get(const ChunkOffset& chunk_offset) const ;
+  
 
 };
 
