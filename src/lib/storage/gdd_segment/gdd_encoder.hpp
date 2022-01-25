@@ -61,18 +61,19 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     });
 
     
-    // TODO represent NULL values in reconstruction list as bases.size() (smallest invalid base index)!
-    
-    using DeviationsVector = compact::vector<unsigned, GddSegmentV1Fixed<T>::deviation_bits>;
+    //using DeviationsVector = compact::vector<unsigned, GddSegmentV1Fixed<T>::deviation_bits>;
+    // Use the same types for bases and deviations as in the GddSegmentV1Fixed!
     std::vector<T> bases;
-    DeviationsVector deviations;
+    std::vector<uint8_t> deviations;
+
     // reconstruction_list must be a shared pointer, because we cannot instantiate a compact vector 
     // without specifying the number of bits (which will be done in gdd_lsb::encode)
     std::shared_ptr<compact::vector<size_t>> reconstruction_list; 
 
-    // MAGIC start
-    gdd_lsb::std_bases::encode(dense_values, bases, deviations, reconstruction_list);
-    // MAGIC end
+    // Perform GD encoding of dense_values into bases, deviations and reconstruction list
+    gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, reconstruction_list);
+
+    // In V1 we don't do anything else, e.g. do not deduplicate deviations or precalculate base-devs mappings
 
     const auto segment_min = *(std::min_element(dense_values.begin(), dense_values.end()));
     const auto segment_max = *(std::max_element(dense_values.begin(), dense_values.end()));
@@ -80,109 +81,14 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     // null_values has an entry for each stored element, which is True for NULLs
     std::cout << "Bases: " << bases.size() << " / " << null_values.size() << std::endl;
     const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
-        std::make_shared<std::vector<T>>(bases), 
-        std::make_shared<DeviationsVector>(deviations), 
+        std::make_shared<decltype(bases)>(bases), 
+        std::make_shared<decltype(deviations)>(deviations), 
         reconstruction_list,
         segment_min, segment_max,
         num_nulls
       );
     
     return gdd_segment;
-    /*
-
-      // Build dictionary
-      auto dictionary = std::make_shared<pmr_vector<T>>(dense_values.cbegin(), dense_values.cend(), allocator);
-      std::sort(dictionary->begin(), dictionary->end());
-      dictionary->erase(std::unique(dictionary->begin(), dictionary->end()), dictionary->cend());
-      dictionary->shrink_to_fit();
-      // NULL ValueID = max dictionary index + 1 (=dictionary size)
-      const auto null_value_id = static_cast<uint32_t>(dictionary->size());
-
-      std::cout << segment_size << " values, " << (dictionary.size() + (size_t)has_null) << " unique, bases: " << std::endl
-      // Profile the dense values
-      const auto bases_nums = gdd_lsb::get_bases_num<T>(dense_values, 100);
-      auto bases_nums_ptr = std::make_shared<pmr_vector<uint32_t>>(bases_nums.cbegin(), bases_nums.cend(), allocator);
-
-      // make sure that traditional dedup as a corner case is correct
-      assert(bases_nums[0] == dictionary->size());
-      
-      // Find best compression 
-      size_t bits = 0U;
-      size_t max_compression_bases = bases_nums[bits], max_compression_dev_bits = bits;
-      auto best_compression = gdd_lsb::calculate_compression_rate_percent<T>(max_compression_dev_bits, max_compression_bases, dense_values.size());
-      //for(size_t i=1 ; i<bases_nums.size() ; ++i){
-      ++bits;
-      for(; bits<=8 ; ++bits){
-        const auto compression = gdd_lsb::calculate_compression_rate_percent<T>(bits, bases_nums[bits], dense_values.size());
-        if(compression > best_compression){
-          best_compression = compression;
-          max_compression_bases = bases_nums[bits];
-          max_compression_dev_bits = bits;
-        }
-      }
-
-      auto uncompressed_attribute_vector = pmr_vector<uint32_t>{null_values.size(), allocator};
-      auto values_iter = dense_values.cbegin();
-      const auto null_values_size = null_values.size();
-      for (auto current_position = size_t{0}; current_position < null_values_size; ++current_position) {
-        if (!null_values[current_position]) {
-          const auto value_id = _get_value_id(dictionary, *values_iter);
-          uncompressed_attribute_vector[current_position] = value_id;
-          ++values_iter;
-        } else {
-          uncompressed_attribute_vector[current_position] = null_value_id;
-        }
-      }
-
-      // While the highest value ID used for a value is (dictionary->size() - 1), we need to account for NULL values,
-      // encoded as (dictionary->size()). Thus, the highest value id seen in the attribute vector is the one encoding
-      // NULL.
-      const auto max_value_id = null_value_id;
-
-      const auto compressed_attribute_vector = std::shared_ptr<const BaseCompressedVector>(compress_vector(
-          uncompressed_attribute_vector, SegmentEncoder<GddEncoder>::vector_compression_type(),
-          allocator, {max_value_id}));
-      
-
-      // Encode a segment with a pmr_vector<T> as dictionary
-      const auto gdd_segment = std::make_shared<GddSegment<T>>(
-          dictionary, 
-          compressed_attribute_vector, 
-          std::make_shared<pmr_vector<uint32_t>>(bases_nums.cbegin(), bases_nums.cend(), allocator)
-        );
-
-      const auto orig_data_size = sizeof(T) * null_values.size();
-      const auto dict_segment_size = gdd_segment->memory_usage(MemoryUsageCalculationMode::Full);
-      const auto dict_comp_rate = 100*(1-(dict_segment_size/((float)orig_data_size)));
-      
-      //auto log_str = std::to_string(null_values.size()) + " values, " + 
-                    std::to_string(dictionary->size()) + " unique, " + 
-                    std::to_string(max_compression_bases) + " bases. Dict compression: " + 
-                    std::to_string(dict_comp_rate) + 
-                    "%, best base compression (at "+std::to_string(max_compression_dev_bits)+" dev bits): " + 
-                    std::to_string(best_compression) + "%\n";
-      
-      
-      // Values, Unique values, Cardinality%, Dict%, GD 8 bits bases,GD 8 bits%, GD best bits, GD best bits - bases, GD best bits %
-      
-      const auto bases_8_bits = bases_nums[8];
-      const auto comp_gd_8_bits = gdd_lsb::calculate_compression_rate_percent<T>(8, bases_nums[8], dense_values.size());
-
-      auto log_str = std::to_string(null_values.size()) + "," + 
-                    std::to_string(dictionary->size()) + "," + 
-                    std::to_string(dictionary->size()/(float)null_values.size()) + "," + 
-                    std::to_string(dict_comp_rate) + "," +
-                    
-                    std::to_string(bases_8_bits) + "," + 
-                    std::to_string(comp_gd_8_bits) + "," + 
-
-                    std::to_string(max_compression_dev_bits) + "," + 
-                    std::to_string(max_compression_bases) + "," + 
-                    std::to_string(best_compression) + "\n";
-      std::cout << log_str;
-
-      return gdd_segment;
-    */
   }
 
  private:

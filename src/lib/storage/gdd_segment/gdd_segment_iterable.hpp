@@ -6,6 +6,7 @@
 #include "storage/gdd_segment.hpp"
 #include "storage/segment_iterables.hpp"
 #include "storage/vector_compression/resolve_compressed_vector_type.hpp"
+#include "gdd_lsb/gdd_lsb.hpp"
 
 #include <iostream>
 
@@ -17,31 +18,54 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
   using ValueType = T;
   using SegmentType = GddSegmentV1Fixed<T>;
 
+ private:
+  const GddSegmentV1Fixed<T>& _segment;
+  std::shared_ptr<const std::vector<T>> _bases_ptr;
+  std::shared_ptr<const std::vector<uint8_t>> _devs_ptr;
+  std::shared_ptr<const compact::vector<size_t>> _recon_list_ptr;
+
+ public:
+  
   explicit GddSegmentV1FixedIterable(const GddSegmentV1Fixed<T>& segment)
-      : _segment{segment} {}
+      : 
+      _segment{segment},
+      _bases_ptr{segment.get_bases()},
+      _devs_ptr{segment.get_deviations()},
+      _recon_list_ptr{segment.get_reconstruction_list()}
+    { }
 
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {
     // Must call functor with 2 AbstractSegmentIterators (begin, end)
     // These iterators should point to the beginning and end of all segment values 
-    std::cout << "GddSegmentIterable with_iterators called (no position filter)" << std::endl;
+    ////std::cout << "GddSegmentIterable with_iterators called (no position filter)" << std::endl;
 
     _segment.access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment.size();
 
     //using BasesIteratorType = decltype(_segment.get_bases()->cbegin());
-    using ReconListIteratorType = decltype(_segment.get_reconstruction_list()->cbegin());
+    ////std::cout << "Segment has " << _segment.size() << " elements" << std::endl;
 
-    auto begin = Iterator<SegmentType, ReconListIteratorType>{
-        _segment,
-        _segment.get_reconstruction_list()->cbegin(), 
-        _segment.null_value_id(), 
+    
+    auto bases_it = _bases_ptr->cbegin();
+    auto devs_it = _devs_ptr->cbegin();
+    auto recon_it_begin = _recon_list_ptr->cbegin();
+    auto recon_it_end = _recon_list_ptr->cend();
+    
+    using BasesType = decltype(bases_it);
+    using DevsType = decltype(devs_it);
+    using ReconType = decltype(recon_it_begin);
+
+    auto begin = Iterator<BasesType, DevsType, ReconType>{
+        bases_it, devs_it,
+        recon_it_begin,
+        _segment.null_value_id(),
         ChunkOffset{0u}
     };
 
-    auto end = Iterator<SegmentType, ReconListIteratorType>{
-        _segment,
-        _segment.get_reconstruction_list()->cend(), 
-        _segment.null_value_id(), 
+    auto end = Iterator<BasesType, DevsType, ReconType>{
+        bases_it, devs_it, 
+        recon_it_end,
+        _segment.null_value_id(),
         static_cast<ChunkOffset>(_segment.size())
     };
 
@@ -50,283 +74,198 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
 
   template <typename Functor, typename PosListType>
   void _on_with_iterators(const std::shared_ptr<PosListType>& position_filter, const Functor& functor) const {
-    std::cout << "GddSegmentIterable with_iterators called with position filter of " << position_filter->size() << " elements" << std::endl;
-    
+
+    ////std::cout << "GddSegmentIterable with_iterators called with position filter of " << position_filter->size() << " elements" << std::endl;
     _segment.access_counter[SegmentAccessCounter::access_type(*position_filter)] += position_filter->size();
 
-    using ReconListIteratorType = decltype(_segment.get_reconstruction_list()->cbegin());
     using PosListIteratorType = decltype(position_filter->cbegin());
 
-    auto begin = PointAccessIterator<SegmentType, ReconListIteratorType, PosListIteratorType>{
-        _segment,
-        _segment.get_reconstruction_list()->cbegin(), 
-        _segment.null_value_id(), 
+    auto bases_it = _bases_ptr->cbegin();
+    auto devs_it = _devs_ptr->cbegin();
+    auto recon_it = _recon_list_ptr->cbegin();
+    
+    using BasesType = decltype(bases_it);
+    using DevsType = decltype(devs_it);
+    using ReconType = decltype(recon_it);
+
+
+
+    auto begin = PointAccessIterator<BasesType, DevsType, ReconType, PosListIteratorType>{
+        bases_it, devs_it, recon_it, _segment.null_value_id(),
         position_filter->cbegin(),
         position_filter->cbegin()
     };
 
-    auto end = PointAccessIterator<SegmentType, ReconListIteratorType, PosListIteratorType>{
-        _segment,
-        _segment.get_reconstruction_list()->cend(), 
-        _segment.null_value_id(), 
+    auto end = PointAccessIterator<BasesType, DevsType, ReconType, PosListIteratorType>{
+        bases_it, devs_it, recon_it, _segment.null_value_id(),
         position_filter->cbegin(),
         position_filter->cend()
     };
 
     functor(begin, end);
-    /*
-    resolve_compressed_vector_type(*_segment.attribute_vector(), [&](const auto& vector) {
-      using Decompressor = std::decay_t<decltype(vector.create_decompressor())>;
-      using DictionaryIteratorType = decltype(_dictionary->cbegin());
-
-      using PosListIteratorType = decltype(position_filter->cbegin());
-      auto begin = PointAccessIterator<Decompressor, DictionaryIteratorType, PosListIteratorType>{
-          _dictionary->cbegin(), _segment.null_value_id(), vector.create_decompressor(), position_filter->cbegin(),
-          position_filter->cbegin()};
-      auto end = PointAccessIterator<Decompressor, DictionaryIteratorType, PosListIteratorType>{
-          _dictionary->cbegin(), _segment.null_value_id(), vector.create_decompressor(), position_filter->cbegin(),
-          position_filter->cend()};
-      functor(begin, end);
-    });
-    */
+    
   }
 
   size_t _on_size() const { return _segment.size(); }
 
-private:
-  const GddSegmentV1Fixed<T>& _segment;
-
 
  private:
   
-  template <typename SegmentType, typename ReconListIteratorType>
-  class Iterator : public AbstractSegmentIterator<Iterator<SegmentType, ReconListIteratorType>, SegmentPosition<T>> {
+  template <typename BasesType, typename DevsType, typename ReconType>
+  class Iterator : public AbstractSegmentIterator<Iterator<BasesType, DevsType, ReconType>, SegmentPosition<T>> {
    public:
 
     // These 2 using declarations are needed from AnySegmentIterable
     using ValueType = T;
     using IterableType = GddSegmentV1FixedIterable<T>;
 
-    Iterator(
-      const SegmentType& segment, 
-      ReconListIteratorType recon_list_it, 
-      ValueID null_value_id, ChunkOffset chunk_offset)
-        : __segment{segment},
-          _recon_list_it{std::move(recon_list_it)},
-          _null_value_id{null_value_id},
-          _chunk_offset{chunk_offset} 
-        {}
-
+    explicit Iterator(BasesType bases_it, DevsType devs_it, ReconType recon_it, ValueID null_value_id, ChunkOffset chunk_offset) : 
+              _bases_it{std::move(bases_it)}, 
+              _devs_it{std::move(devs_it)}, 
+              _recon_it{std::move(recon_it)}, 
+              _null_value_id{null_value_id},
+              _chunk_offset{chunk_offset} 
+        { }
+    
    private:
     // grants the boost::iterator_facade access to the private interface
     // Mandatory methods to implement: https://www.boost.org/doc/libs/1_46_0/libs/iterator/doc/iterator_facade.html
     friend class boost::iterator_core_access;  
 
     void increment() {
-      ++_recon_list_it;
       ++_chunk_offset;
+      ++_recon_it;
     }
 
     void decrement() {
-      --_recon_list_it;
       --_chunk_offset;
+      --_recon_it;
     }
 
     void advance(std::ptrdiff_t n) {
-      _recon_list_it += n;
       _chunk_offset += n;
+      _recon_it += n;
     }
 
-    bool equal(const Iterator& other) const { return _recon_list_it == other._recon_list_it; }
+    bool equal(const Iterator& other) const { 
+      return _recon_it == other._recon_it; 
+      //return _chunk_offset == other._chunk_offset; 
+    }
 
-    std::ptrdiff_t distance_to(const Iterator& other) const { return other._recon_list_it - _recon_list_it; }
+    std::ptrdiff_t distance_to(const Iterator& other) const { return other._recon_it - _recon_it; }
 
     SegmentPosition<T> dereference() const {
 
-      //const auto value_id = static_cast<ValueID>(*_attribute_it);
-      const auto base_idx = static_cast<ValueID>(*_recon_list_it);
-      const auto is_null = (base_idx == _null_value_id);
-      // Current element is a NULL
-      if (is_null) return SegmentPosition<T>{T{}, true, _chunk_offset};
-      // Not NULL, reconstruct
+      try {
+        //std::cout << "Iterator dereference at ... " << _chunk_offset << std::flush;
+        const auto base_idx = *(_recon_it);
+        //std::cout << "base idx from recon list: " << base_idx << std::flush;
+        const auto is_null = (static_cast<ValueID>(base_idx) == _null_value_id);
 
-      //const auto deviation = *(_deviations_begin_it + _chunk_offset);
-      //const auto base = *(_bases_begin_it + base_idx);
-      return SegmentPosition<T>{__segment.get(_chunk_offset), false, _chunk_offset};
+
+        if (is_null) {
+          //std::cout << " NULL" << std::endl;
+          return SegmentPosition<T>{T{}, true, _chunk_offset};
+        }
+        //std::cout << " not NULL " << std::flush;
+        // Not null, reconstruct value
+        const T base = *(_bases_it + base_idx);
+        //std::cout << " base: " << base << std::flush;
+        const auto dev = *(_devs_it + _chunk_offset);
+        //std::cout << " dev: " << dev << std::flush;
+        const T value = gdd_lsb::reconstruct_value<T, 8U>(base, dev);
+        //std::cout << " value: " << value << std::endl;
+
+        return SegmentPosition<T>{value, false, _chunk_offset};
+      } catch(const std::exception& ex){
+        std::cout << "Exception during dereference: " << ex.what() << std::endl;
+      } catch (...) {
+        std::cout << "Exception during dereference" << std::endl;
+      }
+
+      //
+      
+      /*
+      if(_segment_ptr->isnull(_chunk_offset)){
+        return SegmentPosition<T>{T{}, true, _chunk_offset};
+      }
+
+      const T value = _segment_ptr->get(_chunk_offset);
+      //std::cout << "Element value: " << value << std::endl;
+      return SegmentPosition<T>{value, false, _chunk_offset};
+      */
+      
     }
 
    private:
-    
-    const SegmentType& __segment; 
-    ReconListIteratorType _recon_list_it; // Iterator to the current element of the reconstruction list
-    ValueID _null_value_id; // ValueID representing a NULL value 
+    BasesType _bases_it;
+    DevsType _devs_it;
+    ReconType _recon_it;
+    ValueID _null_value_id;
     ChunkOffset _chunk_offset; // Row index (just an alias of uint32_t)
   };
 
-
-  template <typename SegmentType, typename ReconListIteratorType, typename PosListIteratorType>
+  template <typename BasesType, typename DevsType, typename ReconType, typename PosListIteratorType>
   class PointAccessIterator : public AbstractPointAccessSegmentIterator<
-                                  PointAccessIterator<SegmentType, ReconListIteratorType, PosListIteratorType>,
+                                  PointAccessIterator<BasesType, DevsType, ReconType, PosListIteratorType>,
                                   SegmentPosition<T>, PosListIteratorType> {
    public:
     // These 2 using declarations are needed from AnySegmentIterable
     using ValueType = T;
     using IterableType = GddSegmentV1FixedIterable<T>;
     
-    PointAccessIterator(const SegmentType& segment, 
-                        ReconListIteratorType recon_list_it, 
-                        const ValueID null_value_id,
+    PointAccessIterator(BasesType bases_it, DevsType devs_it, ReconType recon_it, ValueID null_value_id, 
                         PosListIteratorType position_filter_begin,
                         PosListIteratorType position_filter_it)
         : AbstractPointAccessSegmentIterator<
-              PointAccessIterator<SegmentType, ReconListIteratorType, PosListIteratorType>, SegmentPosition<T>,
+              PointAccessIterator<BasesType, DevsType, ReconType, PosListIteratorType>, SegmentPosition<T>,
               PosListIteratorType>{std::move(position_filter_begin), std::move(position_filter_it)},
-          __segment{segment},
-          _recon_list_it{std::move(recon_list_it)},
+          _bases_it{std::move(bases_it)}, 
+          _devs_it{std::move(devs_it)}, 
+          _recon_it{std::move(recon_it)}, 
           _null_value_id{null_value_id}
-        {}
+        { }
 
    private:
     friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
 
     SegmentPosition<T> dereference() const {
-      const auto& chunk_offsets = this->chunk_offsets();
+      try{
 
-      //const auto value_id = _attribute_decompressor.get(chunk_offsets.offset_in_referenced_chunk);
-      //const auto is_null = (value_id == _null_value_id);
-      //if (is_null) return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
-      //return SegmentPosition<T>{T{*(_dictionary_begin_it + value_id)}, false, chunk_offsets.offset_in_poslist};
+        const auto& chunk_offsets = this->chunk_offsets();
+
+        const auto base_idx = *(_recon_it + chunk_offsets.offset_in_referenced_chunk);
+        const auto is_null = (static_cast<ValueID>(base_idx) == _null_value_id);
+
+        if (is_null) return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
+        
+        // Not null, reconstruct value
+        const T base = *(_bases_it + base_idx);
+        const auto dev = *(_devs_it + chunk_offsets.offset_in_referenced_chunk);
+        return SegmentPosition<T>{gdd_lsb::reconstruct_value<T, 8U>(base, dev), false, chunk_offsets.offset_in_poslist};
+      } catch(const std::exception& ex){
+        std::cout << "Exception during PointAccessibleIterator dereference: " << ex.what() << std::endl;
+      } catch (...) {
+        std::cout << "Exception during PointAccessibleIterator dereference" << std::endl;
+      }
       /*
-      const auto base_idx = static_cast<ValueID>(chunk_offsets.offset_in_referenced_chunk);
-      const auto is_null = (base_idx == _null_value_id);
-      // Current element is a NULL
-      if (is_null) return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
+      if(__segment.isnull(chunk_offsets.offset_in_referenced_chunk)){
+        ////std::cout << "Element is NULL" << std::endl;
+        return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
+      }
+
+      const T value = __segment.get(chunk_offsets.offset_in_referenced_chunk);
+      ////std::cout << "Element value: " << value << std::endl;
+      return SegmentPosition<T>{value, false, chunk_offsets.offset_in_poslist};
       */
-      // Not NULL, reconstruct
-      return SegmentPosition<T>{__segment.get(chunk_offsets.offset_in_referenced_chunk), false, chunk_offsets.offset_in_poslist};
     }
 
    private:
-    const SegmentType& __segment; 
-    ReconListIteratorType _recon_list_it; // Iterator to the current element of the reconstruction list
-    ValueID _null_value_id; // ValueID representing a NULL value 
-
-    //DictionaryIteratorType _dictionary_begin_it;
-    //ValueID _null_value_id;
-    //mutable Decompressor _attribute_decompressor;
-  };
-
-
-  /*
-  // AbstractSegmentIterator for non-filtered access to the whole GddSegment
-  template <typename BasesIteratorType, typename DeviationsIteratorType, typename ReconListIteratorType>
-  class Iterator : public AbstractSegmentIterator<Iterator<BasesIteratorType, DeviationsIteratorType, ReconListIteratorType>, SegmentPosition<T>> {
-   public:
-
-    // These 2 using declarations are needed from AnySegmentIterable
-    using ValueType = T;
-    using IterableType = GddSegmentV1FixedIterable<T>;
-
-    Iterator(
-      BasesIteratorType bases_begin_it, 
-      DeviationsIteratorType deviations_begin_it, 
-      ReconListIteratorType recon_list_it, 
-      ValueID null_value_id, ChunkOffset chunk_offset)
-        : _bases_begin_it{std::move(bases_begin_it)},
-          _deviations_begin_it{std::move(deviations_begin_it)},
-          _recon_list_it{std::move(recon_list_it)},
-          _null_value_id{null_value_id},
-          _chunk_offset{chunk_offset} 
-        {}
-
-   private:
-    // grants the boost::iterator_facade access to the private interface
-    // Mandatory methods to implement: https://www.boost.org/doc/libs/1_46_0/libs/iterator/doc/iterator_facade.html
-    friend class boost::iterator_core_access;  
-
-    void increment() {
-      ++_recon_list_it;
-      ++_chunk_offset;
-    }
-
-    void decrement() {
-      --_recon_list_it;
-      --_chunk_offset;
-    }
-
-    void advance(std::ptrdiff_t n) {
-      _recon_list_it += n;
-      _chunk_offset += n;
-    }
-
-    bool equal(const Iterator& other) const { return _recon_list_it == other._recon_list_it; }
-
-    std::ptrdiff_t distance_to(const Iterator& other) const { return other._recon_list_it - _recon_list_it; }
-
-    SegmentPosition<T> dereference() const {
-
-      //const auto value_id = static_cast<ValueID>(*_attribute_it);
-      const auto base_idx = static_cast<ValueID>(*_recon_list_it);
-      const auto is_null = (base_idx == _null_value_id);
-      // Current element is a NULL
-      if (is_null) return SegmentPosition<T>{T{}, true, _chunk_offset};
-      // Not NULL, reconstruct
-
-      //const auto deviation = *(_deviations_begin_it + _chunk_offset);
-      //const auto base = *(_bases_begin_it + base_idx);
-      return SegmentPosition<T>{_segment.get(_chunk_offset), false, _chunk_offset};
-    }
-
-   private:
-    
-    BasesIteratorType _bases_begin_it; // Iterator to the bases vector
-    DeviationsIteratorType _deviations_begin_it;  // Iterator to the deviations vector
-    ReconListIteratorType _recon_list_it; // Iterator to the current element of the reconstruction list
-    ValueID _null_value_id; // ValueID representing a NULL value 
-    ChunkOffset _chunk_offset; // Row index (just an alias of uint32_t)
-  };
-  */
-
-  /*
-  template <typename Decompressor, typename DictionaryIteratorType, typename PosListIteratorType>
-  class PointAccessIterator : public AbstractPointAccessSegmentIterator<
-                                  PointAccessIterator<Decompressor, DictionaryIteratorType, PosListIteratorType>,
-                                  SegmentPosition<T>, PosListIteratorType> {
-   public:
-    // These 2 using declarations are needed from AnySegmentIterable
-    using ValueType = T;
-    using IterableType = GddSegmentV1FixedIterable<T>;
-    
-    PointAccessIterator(DictionaryIteratorType dictionary_begin_it, const ValueID null_value_id,
-                        Decompressor attribute_decompressor, PosListIteratorType position_filter_begin,
-                        PosListIteratorType position_filter_it)
-        : AbstractPointAccessSegmentIterator<
-              PointAccessIterator<Decompressor, DictionaryIteratorType, PosListIteratorType>, SegmentPosition<T>,
-              PosListIteratorType>{std::move(position_filter_begin), std::move(position_filter_it)},
-          _dictionary_begin_it{std::move(dictionary_begin_it)},
-          _null_value_id{null_value_id},
-          _attribute_decompressor{std::move(attribute_decompressor)} {}
-
-   private:
-    friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
-
-    SegmentPosition<T> dereference() const {
-      const auto& chunk_offsets = this->chunk_offsets();
-
-      const auto value_id = _attribute_decompressor.get(chunk_offsets.offset_in_referenced_chunk);
-      const auto is_null = (value_id == _null_value_id);
-
-      if (is_null) return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
-
-      return SegmentPosition<T>{T{*(_dictionary_begin_it + value_id)}, false, chunk_offsets.offset_in_poslist};
-    }
-
-   private:
-    DictionaryIteratorType _dictionary_begin_it;
+    BasesType _bases_it;
+    DevsType _devs_it;
+    ReconType _recon_it;
     ValueID _null_value_id;
-    mutable Decompressor _attribute_decompressor;
   };
-  */
  
 };
 

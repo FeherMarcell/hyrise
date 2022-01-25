@@ -1,4 +1,6 @@
 
+#pragma once
+
 #include <vector>
 #include <type_traits>
 #include "compact_vector.hpp"
@@ -28,7 +30,7 @@ namespace gdd_lsb
         template<typename T, unsigned DEV_BITS> 
         static void encode(const std::vector<T>& data, 
                             std::vector<T>& bases_out, 
-                            compact::vector<unsigned, DEV_BITS>& deviations_out,
+                            std::vector<uint8_t>& deviations_out,
                             shared_ptr<compact::vector<size_t>>& base_indexes_ptr)
         {
             {   // Fill deviations compact vector (it uses the last bits, no transform needed)
@@ -90,7 +92,20 @@ namespace gdd_lsb
 
         
 
-        
+        template<typename T> 
+        static T get(const size_t idx, 
+                    const std::vector<T>& bases, 
+                    const std::vector<uint8_t>& deviations,
+                    const shared_ptr<compact::vector<size_t>>& base_indexes_ptr)
+        {
+            
+            const auto deviation = deviations[idx];
+            const auto base_index = (*base_indexes_ptr)[idx];
+            const auto base = bases[base_index];
+            // Make space for the deviation (shift left) and add deviation bits
+            //return (base << DEV_BITS) | deviation;
+            return reconstruct_value<T, 8U>(base, deviation);
+        }
 
         template<typename T, unsigned DEV_BITS> 
         static T get(const size_t idx, 
@@ -120,6 +135,21 @@ namespace gdd_lsb
             // Make space for the deviation (shift left) and add deviation bits
             //return (base << DEV_BITS) | deviation;
             return reconstruct_value<T, DEV_BITS>(base, deviation);
+        }
+
+        template<typename T> 
+        static T get(const size_t idx, 
+                    const std::shared_ptr<const std::vector<T>>& bases, 
+                    const std::shared_ptr<const std::vector<uint8_t>>& deviations,
+                    const std::shared_ptr<const compact::vector<size_t>>& base_indexes_ptr)
+        {
+            //return get<T, DEV_BITS>(idx, (*bases), (*deviations), base_indexes_ptr);
+            const auto deviation = (*deviations)[idx];
+            const auto base_index = (*base_indexes_ptr)[idx];
+            const auto base = (*bases)[base_index];
+            // Make space for the deviation (shift left) and add deviation bits
+            //return (base << DEV_BITS) | deviation;
+            return reconstruct_value<T, 8U>(base, deviation);
         }
 
 

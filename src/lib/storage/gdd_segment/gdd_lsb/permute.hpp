@@ -1,9 +1,11 @@
+#pragma once
 
 #include <vector>
 #include <algorithm>
 #include <numeric>
 #include <functional>
 #include "compact_vector.hpp"
+
 
 namespace permute
 {

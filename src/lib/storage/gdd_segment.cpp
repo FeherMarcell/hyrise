@@ -20,8 +20,8 @@ using namespace std;
 using namespace std::chrono;
 
 template <typename T, typename U>
-GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const std::shared_ptr<const std::vector<T>>& _bases,
-                            const std::shared_ptr<const DeviationsCV>& _deviations,
+GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const std::shared_ptr<const BasesType>& _bases,
+                            const std::shared_ptr<const DeviationsType>& _deviations,
                             const std::shared_ptr<const compact::vector<size_t>>& _reconstruction_list,
                             const T& segment_min, const T& segment_max, const size_t num_nulls) 
       : BaseGddSegment(data_type_from_type<T>()),
@@ -36,17 +36,15 @@ GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const std::shared_ptr<const std::vect
   // INVALID_VALUE_ID, which is the highest possible number in ValueID::base_type
   // (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a GddSegmentV1Fixed of the max size Chunk::MAX_SIZE, those two values overlap.
-
   Assert(bases->size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");
 }
 
 
-// TODO this returns teh base, not the actual value!!
 template <typename T, typename U>
 AllTypeVariant GddSegmentV1Fixed<T, U>::operator[](const ChunkOffset chunk_offset) const {
   PerformanceWarning("operator[] used");
   DebugAssert(chunk_offset != INVALID_CHUNK_OFFSET, "Passed chunk offset must be valid.");
-  access_counter[SegmentAccessCounter::AccessType::Dictionary] += 1;
+  
   const auto typed_value = get_typed_value(chunk_offset);
   if (!typed_value) {
     return NULL_VALUE;
@@ -61,7 +59,7 @@ std::shared_ptr<AbstractSegment> GddSegmentV1Fixed<T, U>::copy_using_allocator(c
   // TODO use allocator
 
   auto new_bases = std::make_shared<std::vector<T>>(*bases);
-  auto new_deviations = std::make_shared<DeviationsCV>(*deviations);
+  auto new_deviations = std::make_shared<std::vector<uint8_t>>(*deviations);
   auto new_reconstruction_list = std::make_shared<compact::vector<size_t>>(*reconstruction_list);
   auto copy = std::make_shared<GddSegmentV1Fixed<T, U>>(
                                                 std::move(new_bases), 
@@ -106,14 +104,21 @@ size_t GddSegmentV1Fixed<T, U>::memory_usage(const MemoryUsageCalculationMode mo
   */
 }
 
+
+template <typename T, typename U>
+bool GddSegmentV1Fixed<T, U>::isnull(const ChunkOffset& chunk_offset) const {
+  if(num_nulls == 0){
+    // There are no NULLs
+    return false;
+  }
+  return reconstruction_list->at(chunk_offset) == null_value_id();
+}
+
 template <typename T, typename U>
 T GddSegmentV1Fixed<T, U>::get(const ChunkOffset& chunk_offset) const {
-  // TODO check if null?
   DebugAssert(chunk_offset < reconstruction_list->size(), "GddSegmentV1Fixed::get chunkoffset larger than reconstruction_list!");
   DebugAssert(chunk_offset < deviations->size(), "GddSegmentV1Fixed::get chunkoffset larger than deviations!");
-  const auto base_idx = reconstruction_list->at(chunk_offset);
-
-  DebugAssert(base_idx < bases->size(), "GddSegmentV1Fixed::get chunkoffset points to NULL!");
+  DebugAssert(reconstruction_list->at(chunk_offset) < bases->size(), "GddSegmentV1Fixed::get chunkoffset points to NULL!");
 
   return gdd_lsb::std_bases::get((size_t)chunk_offset, bases, deviations, reconstruction_list);
 }
@@ -375,60 +380,8 @@ void GddSegmentV1Fixed<T, U>::_scan_bases(
     const ChunkID chunk_id, 
     RowIDPosList& matches) const
 {
-  /*
-  std::cout << "Scanning " << base_indexes.size() << "/" << bases->size() << " bases: "; 
-  for(const auto& i : base_indexes){ std::cout << "#" << i << " "; }
-  std::cout << std::endl;
-  */
-  //const auto t1 = high_resolution_clock::now();
-
   // We will use this to skip NULLs in the result set
   const auto null_base_idx = null_value_id();
-
-  
-  /* v1, slow
-  with_comparator(condition, [&](auto predicate_comparator) {
-
-    for(auto i=0U ; i<reconstruction_list->size() ; ++i) {
-      const auto current_base_idx = reconstruction_list->at(i);
-      
-      // Check if the current base index is one of the bases we need to scan
-      // (base_indexes is sorted, we can search with lower_bound)
-      bool scan_current_value;
-      if(base_indexes.size() == 1){
-        scan_current_value = (base_indexes.front() == current_base_idx);
-      }
-      else{
-        const auto base_index_lower = std::lower_bound(base_indexes.cbegin(), base_indexes.cend(), current_base_idx);
-        scan_current_value = *base_index_lower == current_base_idx;
-      }
-
-      if(scan_current_value) {
-        // Yes, scan this value
-        
-        // 'i' is a deviation index , reconstruction_list[i] is the base index
-        const auto dev_idx = i;
-        const auto base_idx = reconstruction_list->at(i);
-
-        if(base_idx == null_base_idx){
-          // Skip NULLs
-          continue;
-        }
-
-        // Reconstruct the original value and run comparator
-        // If the base is zero we don't need to reconstruct, just use the deviation directly
-        const T reconstructed_val = (bases->at(base_idx) == 0) ? 
-                                      deviations->at(dev_idx) : 
-                                      gdd_lsb::reconstruct_value<T, deviation_bits>(bases->at(base_idx), deviations->at(dev_idx));
-        // Evaluate the predicate
-        if(predicate_comparator(reconstructed_val, typed_query_value)){
-          matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned) dev_idx}});
-        }
-        
-      }
-    }
-  });
-  */
 
   with_comparator(condition, [&](auto predicate_comparator) {
 
@@ -454,45 +407,6 @@ void GddSegmentV1Fixed<T, U>::_scan_bases(
       }
     }
   });
-  
-  /**
-   *  SCAN A SINGLE BASE RANGE (less efficient than collecting deviations from all base ranges at once)
-    vector<size_t> deviation_indexes;
-
-    { // Find all deviation indexes that use this base (TODO null values!)
-
-      for(auto i=0U ; i<reconstruction_list->size() ; ++i){
-        if(reconstruction_list->at(i) == base_idx){
-          deviation_indexes.push_back(i);
-        }
-      }
-      Assert(!deviation_indexes.empty(), "No deviations for base #"+std::to_string(base_idx));
-      //std::cout << deviation_indexes.size() << " deviations use base #" << base_idx << endl;
-    }
-
-    { // Reconstruct original values and evaluate predicate to find matches in this segment (this is independent of the predicate!)
-      const auto base = bases->at(base_idx);
-
-      // Reserve enough space in matches so we can push_back all indexes without allocating memory in a loop
-      matches.reserve(matches.size() + deviation_indexes.size());
-      // Convert the condition (enum) to a bool Functor
-      with_comparator(condition, [&](auto predicate_comparator) {
-
-        for(const auto& dev_idx : deviation_indexes){
-          // If the base is zero we don't need to reconstruct, just use the deviation directly
-          const T reconstructed_val = (base == 0) ? 
-                                        deviations->at(dev_idx) : 
-                                        gdd_lsb::reconstruct_value<T, deviation_bits>(bases->at(base_idx), deviations->at(dev_idx));
-          // Evaluate the predicate
-          if(predicate_comparator(reconstructed_val, typed_query_value)){
-            matches.push_back(RowID{chunk_id, ChunkOffset{(unsigned) dev_idx}});
-          }
-        } 
-      });
-    }
-  */
-  //const auto t2 = high_resolution_clock::now();
-  //cout << "Scanning " << base_indexes.size() << " bases took " << duration<double, std::milli>(t2-t1).count() << " ms" << endl;
 }
 
 template <typename T, typename U>
@@ -557,6 +471,7 @@ ValueID GddSegmentV1Fixed<T, U>::null_value_id() const {
   // Last valid base index + 1
   return ValueID{static_cast<ValueID::base_type>(bases->size())};
 }
+
 
 //EXPLICITLY_INSTANTIATE_DATA_TYPES(GddSegmentV1Fixed);
 template class GddSegmentV1Fixed<int64_t>;

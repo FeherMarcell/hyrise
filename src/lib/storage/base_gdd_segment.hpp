@@ -7,8 +7,6 @@
 
 namespace opossum {
 
-class BaseCompressedVector;
-
 /**
  * @brief Base class of GddSegment<T> exposing type-independent interface
  */
