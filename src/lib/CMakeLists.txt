@@ -11,6 +11,147 @@ set(
     all_type_variant.hpp
     cache/abstract_cache.hpp
     cache/gdfs_cache.hpp
+
+    storage/abstract_encoded_segment.cpp
+    storage/abstract_encoded_segment.hpp
+    storage/abstract_segment.cpp
+    storage/abstract_segment.hpp
+    storage/base_dictionary_segment.hpp
+    storage/base_gdd_segment.hpp
+    storage/base_segment_accessor.hpp
+    storage/base_segment_encoder.hpp
+    storage/base_value_segment.hpp
+    storage/abstract_table_constraint.cpp
+    storage/abstract_table_constraint.hpp
+    storage/table_key_constraint.cpp
+    storage/table_key_constraint.hpp
+    storage/chunk.cpp
+    storage/chunk.hpp
+    storage/chunk_encoder.cpp
+    storage/chunk_encoder.hpp
+    storage/gdd_segment/gdd_lsb/permute.hpp
+    storage/gdd_segment/gdd_lsb/gdd_lsb.hpp
+    storage/gdd_segment.hpp
+    storage/gdd_segment.cpp
+    storage/gdd_segment/gdd_encoder.hpp
+    storage/gdd_segment/gdd_segment_iterable.hpp
+    storage/create_iterable_from_reference_segment.ipp
+    storage/create_iterable_from_segment.hpp
+    storage/create_iterable_from_segment.ipp
+    storage/dictionary_segment.cpp
+    storage/dictionary_segment.hpp
+    storage/dictionary_segment/attribute_vector_iterable.hpp
+    storage/dictionary_segment/dictionary_encoder.hpp
+    storage/dictionary_segment/dictionary_segment_iterable.hpp
+    storage/encoding_type.cpp
+    storage/encoding_type.hpp
+    storage/fixed_string_dictionary_segment.cpp
+    storage/fixed_string_dictionary_segment.hpp
+    storage/fixed_string_dictionary_segment/fixed_string.cpp
+    storage/fixed_string_dictionary_segment/fixed_string.hpp
+    storage/fixed_string_dictionary_segment/fixed_string_vector.cpp
+    storage/fixed_string_dictionary_segment/fixed_string_vector.hpp
+    storage/fixed_string_dictionary_segment/fixed_string_vector_iterator.hpp
+    storage/frame_of_reference_segment.cpp
+    storage/frame_of_reference_segment.cpp
+    storage/frame_of_reference_segment/frame_of_reference_encoder.hpp
+    storage/frame_of_reference_segment/frame_of_reference_segment_iterable.hpp
+    storage/index/abstract_index.cpp
+    storage/index/abstract_index.hpp
+    storage/index/adaptive_radix_tree/adaptive_radix_tree_index.cpp
+    storage/index/adaptive_radix_tree/adaptive_radix_tree_index.hpp
+    storage/index/adaptive_radix_tree/adaptive_radix_tree_nodes.cpp
+    storage/index/adaptive_radix_tree/adaptive_radix_tree_nodes.hpp
+    storage/index/b_tree/b_tree_index.cpp
+    storage/index/b_tree/b_tree_index.hpp
+    storage/index/b_tree/b_tree_index_impl.cpp
+    storage/index/b_tree/b_tree_index_impl.hpp
+    storage/index/group_key/composite_group_key_index.cpp
+    storage/index/group_key/composite_group_key_index.hpp
+    storage/index/group_key/group_key_index.cpp
+    storage/index/group_key/group_key_index.hpp
+    storage/index/group_key/variable_length_key.cpp
+    storage/index/group_key/variable_length_key.hpp
+    storage/index/group_key/variable_length_key_base.cpp
+    storage/index/group_key/variable_length_key_base.hpp
+    storage/index/group_key/variable_length_key_proxy.cpp
+    storage/index/group_key/variable_length_key_proxy.hpp
+    storage/index/group_key/variable_length_key_store.cpp
+    storage/index/group_key/variable_length_key_store.hpp
+    storage/index/index_statistics.cpp
+    storage/index/index_statistics.hpp
+    storage/index/segment_index_type.hpp
+    storage/lqp_view.cpp
+    storage/lqp_view.hpp
+    storage/lz4_segment.cpp
+    storage/lz4_segment.hpp
+    storage/lz4_segment/lz4_encoder.hpp
+    storage/lz4_segment/lz4_segment_iterable.hpp
+    storage/materialize.hpp
+    storage/mvcc_data.cpp
+    storage/mvcc_data.hpp
+    storage/pos_lists/abstract_pos_list.cpp
+    storage/pos_lists/abstract_pos_list.hpp
+    storage/pos_lists/entire_chunk_pos_list.cpp
+    storage/pos_lists/entire_chunk_pos_list.hpp
+    storage/pos_lists/row_id_pos_list.cpp
+    storage/pos_lists/row_id_pos_list.hpp
+    storage/prepared_plan.cpp
+    storage/prepared_plan.hpp
+    storage/reference_segment.cpp
+    storage/reference_segment.hpp
+    storage/reference_segment/reference_segment_iterable.hpp
+    storage/resolve_encoded_segment_type.hpp
+    storage/run_length_segment.cpp
+    storage/run_length_segment.hpp
+    storage/run_length_segment/run_length_encoder.hpp
+    storage/run_length_segment/run_length_segment_iterable.hpp
+    storage/segment_access_counter.cpp
+    storage/segment_access_counter.hpp
+    storage/segment_accessor.cpp
+    storage/segment_accessor.hpp
+    storage/segment_encoding_utils.cpp
+    storage/segment_encoding_utils.hpp
+    storage/segment_iterables.hpp
+    storage/segment_iterables/abstract_segment_iterators.hpp
+    storage/segment_iterables/any_segment_iterable.cpp
+    storage/segment_iterables/any_segment_iterable.hpp
+    storage/segment_iterables/any_segment_iterator.hpp
+    storage/segment_iterables/create_iterable_from_attribute_vector.hpp
+    storage/segment_iterables/segment_positions.hpp
+    storage/segment_iterate.hpp
+    storage/split_pos_list_by_chunk_id.cpp
+    storage/split_pos_list_by_chunk_id.hpp
+    storage/storage_manager.cpp
+    storage/storage_manager.hpp
+    storage/table.cpp
+    storage/table.hpp
+    storage/table_column_definition.cpp
+    storage/table_column_definition.hpp
+    storage/value_segment.cpp
+    storage/value_segment.hpp
+    storage/value_segment/null_value_vector_iterable.hpp
+    storage/value_segment/value_segment_iterable.hpp
+    storage/vector_compression/base_compressed_vector.hpp
+    storage/vector_compression/base_vector_compressor.hpp
+    storage/vector_compression/base_vector_decompressor.hpp
+    storage/vector_compression/compressed_vector_type.hpp
+    storage/vector_compression/fixed_width_integer/fixed_width_integer_compressor.cpp
+    storage/vector_compression/fixed_width_integer/fixed_width_integer_compressor.hpp
+    storage/vector_compression/fixed_width_integer/fixed_width_integer_decompressor.hpp
+    storage/vector_compression/fixed_width_integer/fixed_width_integer_utils.hpp
+    storage/vector_compression/fixed_width_integer/fixed_width_integer_vector.hpp
+    storage/vector_compression/resolve_compressed_vector_type.hpp
+    storage/vector_compression/bitpacking/bitpacking_compressor.cpp
+    storage/vector_compression/bitpacking/bitpacking_compressor.hpp
+    storage/vector_compression/bitpacking/bitpacking_iterator.hpp
+    storage/vector_compression/bitpacking/bitpacking_decompressor.hpp
+    storage/vector_compression/bitpacking/bitpacking_vector.hpp
+    storage/vector_compression/bitpacking/bitpacking_vector.cpp
+    storage/vector_compression/bitpacking/bitpacking_vector_type.hpp
+    storage/vector_compression/vector_compression.cpp
+    storage/vector_compression/vector_compression.hpp
+
     concurrency/commit_context.cpp
     concurrency/commit_context.hpp
     concurrency/transaction_context.cpp
@@ -171,6 +312,7 @@ set(
     lossy_cast.hpp
     memory/boost_default_memory_resource.cpp
     null_value.hpp
+
     operators/abstract_aggregate_operator.cpp
     operators/abstract_aggregate_operator.hpp
     operators/abstract_join_operator.cpp
@@ -181,6 +323,26 @@ set(
     operators/abstract_read_only_operator.hpp
     operators/abstract_read_write_operator.cpp
     operators/abstract_read_write_operator.hpp
+    
+    operators/table_scan.cpp
+    operators/table_scan.hpp
+    operators/table_scan/abstract_dereferenced_column_table_scan_impl.cpp
+    operators/table_scan/abstract_dereferenced_column_table_scan_impl.hpp
+    operators/table_scan/abstract_table_scan_impl.hpp
+    operators/table_scan/column_between_table_scan_impl.cpp
+    operators/table_scan/column_between_table_scan_impl.hpp
+    operators/table_scan/column_is_null_table_scan_impl.cpp
+    operators/table_scan/column_is_null_table_scan_impl.hpp
+    operators/table_scan/column_like_table_scan_impl.cpp
+    operators/table_scan/column_like_table_scan_impl.hpp
+    operators/table_scan/column_vs_column_table_scan_impl.cpp
+    operators/table_scan/column_vs_column_table_scan_impl.hpp
+    operators/table_scan/column_vs_value_table_scan_impl.cpp
+    operators/table_scan/column_vs_value_table_scan_impl.hpp
+    operators/table_scan/expression_evaluator_table_scan_impl.cpp
+    operators/table_scan/expression_evaluator_table_scan_impl.hpp
+    operators/table_scan/sorted_segment_search.hpp
+
     operators/aggregate/aggregate_traits.hpp
     operators/aggregate_hash.cpp
     operators/aggregate_hash.hpp
@@ -248,24 +410,7 @@ set(
     operators/projection.hpp
     operators/sort.cpp
     operators/sort.hpp
-    operators/table_scan.cpp
-    operators/table_scan.hpp
-    operators/table_scan/abstract_dereferenced_column_table_scan_impl.cpp
-    operators/table_scan/abstract_dereferenced_column_table_scan_impl.hpp
-    operators/table_scan/abstract_table_scan_impl.hpp
-    operators/table_scan/column_between_table_scan_impl.cpp
-    operators/table_scan/column_between_table_scan_impl.hpp
-    operators/table_scan/column_is_null_table_scan_impl.cpp
-    operators/table_scan/column_is_null_table_scan_impl.hpp
-    operators/table_scan/column_like_table_scan_impl.cpp
-    operators/table_scan/column_like_table_scan_impl.hpp
-    operators/table_scan/column_vs_column_table_scan_impl.cpp
-    operators/table_scan/column_vs_column_table_scan_impl.hpp
-    operators/table_scan/column_vs_value_table_scan_impl.cpp
-    operators/table_scan/column_vs_value_table_scan_impl.hpp
-    operators/table_scan/expression_evaluator_table_scan_impl.cpp
-    operators/table_scan/expression_evaluator_table_scan_impl.hpp
-    operators/table_scan/sorted_segment_search.hpp
+    
     operators/table_wrapper.cpp
     operators/table_wrapper.hpp
     operators/union_all.cpp
@@ -276,6 +421,7 @@ set(
     operators/update.hpp
     operators/validate.cpp
     operators/validate.hpp
+
     optimizer/join_ordering/abstract_join_ordering_algorithm.cpp
     optimizer/join_ordering/abstract_join_ordering_algorithm.hpp
     optimizer/join_ordering/dp_ccp.cpp
@@ -417,144 +563,8 @@ set(
     statistics/statistics_objects/range_filter.hpp
     statistics/table_statistics.cpp
     statistics/table_statistics.hpp
-    storage/abstract_encoded_segment.cpp
-    storage/abstract_encoded_segment.hpp
-    storage/abstract_segment.cpp
-    storage/abstract_segment.hpp
-    storage/base_dictionary_segment.hpp
-    storage/base_segment_accessor.hpp
-    storage/base_segment_encoder.hpp
-    storage/base_value_segment.hpp
-    storage/abstract_table_constraint.cpp
-    storage/abstract_table_constraint.hpp
-    storage/table_key_constraint.cpp
-    storage/table_key_constraint.hpp
-    storage/chunk.cpp
-    storage/chunk.hpp
-    storage/chunk_encoder.cpp
-    storage/chunk_encoder.hpp
-    storage/create_iterable_from_reference_segment.ipp
-    storage/create_iterable_from_segment.hpp
-    storage/create_iterable_from_segment.ipp
-    storage/dictionary_segment.cpp
-    storage/dictionary_segment.hpp
-    storage/dictionary_segment/attribute_vector_iterable.hpp
-    storage/dictionary_segment/dictionary_encoder.hpp
-    storage/dictionary_segment/dictionary_segment_iterable.hpp
-    storage/encoding_type.cpp
-    storage/encoding_type.hpp
-    storage/fixed_string_dictionary_segment.cpp
-    storage/fixed_string_dictionary_segment.hpp
-    storage/fixed_string_dictionary_segment/fixed_string.cpp
-    storage/fixed_string_dictionary_segment/fixed_string.hpp
-    storage/fixed_string_dictionary_segment/fixed_string_vector.cpp
-    storage/fixed_string_dictionary_segment/fixed_string_vector.hpp
-    storage/fixed_string_dictionary_segment/fixed_string_vector_iterator.hpp
-    storage/frame_of_reference_segment.cpp
-    storage/frame_of_reference_segment.cpp
-    storage/frame_of_reference_segment/frame_of_reference_encoder.hpp
-    storage/frame_of_reference_segment/frame_of_reference_segment_iterable.hpp
-    storage/gdd_segment/gdd_lsb/permute.hpp
-    storage/gdd_segment/gdd_lsb/gdd_lsb.hpp
-    storage/gdd_segment.hpp
-    storage/gdd_segment.cpp
-    storage/gdd_segment/gdd_encoder.hpp
-    storage/gdd_segment/gdd_segment_iterable.hpp
-    storage/index/abstract_index.cpp
-    storage/index/abstract_index.hpp
-    storage/index/adaptive_radix_tree/adaptive_radix_tree_index.cpp
-    storage/index/adaptive_radix_tree/adaptive_radix_tree_index.hpp
-    storage/index/adaptive_radix_tree/adaptive_radix_tree_nodes.cpp
-    storage/index/adaptive_radix_tree/adaptive_radix_tree_nodes.hpp
-    storage/index/b_tree/b_tree_index.cpp
-    storage/index/b_tree/b_tree_index.hpp
-    storage/index/b_tree/b_tree_index_impl.cpp
-    storage/index/b_tree/b_tree_index_impl.hpp
-    storage/index/group_key/composite_group_key_index.cpp
-    storage/index/group_key/composite_group_key_index.hpp
-    storage/index/group_key/group_key_index.cpp
-    storage/index/group_key/group_key_index.hpp
-    storage/index/group_key/variable_length_key.cpp
-    storage/index/group_key/variable_length_key.hpp
-    storage/index/group_key/variable_length_key_base.cpp
-    storage/index/group_key/variable_length_key_base.hpp
-    storage/index/group_key/variable_length_key_proxy.cpp
-    storage/index/group_key/variable_length_key_proxy.hpp
-    storage/index/group_key/variable_length_key_store.cpp
-    storage/index/group_key/variable_length_key_store.hpp
-    storage/index/index_statistics.cpp
-    storage/index/index_statistics.hpp
-    storage/index/segment_index_type.hpp
-    storage/lqp_view.cpp
-    storage/lqp_view.hpp
-    storage/lz4_segment.cpp
-    storage/lz4_segment.hpp
-    storage/lz4_segment/lz4_encoder.hpp
-    storage/lz4_segment/lz4_segment_iterable.hpp
-    storage/materialize.hpp
-    storage/mvcc_data.cpp
-    storage/mvcc_data.hpp
-    storage/pos_lists/abstract_pos_list.cpp
-    storage/pos_lists/abstract_pos_list.hpp
-    storage/pos_lists/entire_chunk_pos_list.cpp
-    storage/pos_lists/entire_chunk_pos_list.hpp
-    storage/pos_lists/row_id_pos_list.cpp
-    storage/pos_lists/row_id_pos_list.hpp
-    storage/prepared_plan.cpp
-    storage/prepared_plan.hpp
-    storage/reference_segment.cpp
-    storage/reference_segment.hpp
-    storage/reference_segment/reference_segment_iterable.hpp
-    storage/resolve_encoded_segment_type.hpp
-    storage/run_length_segment.cpp
-    storage/run_length_segment.hpp
-    storage/run_length_segment/run_length_encoder.hpp
-    storage/run_length_segment/run_length_segment_iterable.hpp
-    storage/segment_access_counter.cpp
-    storage/segment_access_counter.hpp
-    storage/segment_accessor.cpp
-    storage/segment_accessor.hpp
-    storage/segment_encoding_utils.cpp
-    storage/segment_encoding_utils.hpp
-    storage/segment_iterables.hpp
-    storage/segment_iterables/abstract_segment_iterators.hpp
-    storage/segment_iterables/any_segment_iterable.cpp
-    storage/segment_iterables/any_segment_iterable.hpp
-    storage/segment_iterables/any_segment_iterator.hpp
-    storage/segment_iterables/create_iterable_from_attribute_vector.hpp
-    storage/segment_iterables/segment_positions.hpp
-    storage/segment_iterate.hpp
-    storage/split_pos_list_by_chunk_id.cpp
-    storage/split_pos_list_by_chunk_id.hpp
-    storage/storage_manager.cpp
-    storage/storage_manager.hpp
-    storage/table.cpp
-    storage/table.hpp
-    storage/table_column_definition.cpp
-    storage/table_column_definition.hpp
-    storage/value_segment.cpp
-    storage/value_segment.hpp
-    storage/value_segment/null_value_vector_iterable.hpp
-    storage/value_segment/value_segment_iterable.hpp
-    storage/vector_compression/base_compressed_vector.hpp
-    storage/vector_compression/base_vector_compressor.hpp
-    storage/vector_compression/base_vector_decompressor.hpp
-    storage/vector_compression/compressed_vector_type.hpp
-    storage/vector_compression/fixed_width_integer/fixed_width_integer_compressor.cpp
-    storage/vector_compression/fixed_width_integer/fixed_width_integer_compressor.hpp
-    storage/vector_compression/fixed_width_integer/fixed_width_integer_decompressor.hpp
-    storage/vector_compression/fixed_width_integer/fixed_width_integer_utils.hpp
-    storage/vector_compression/fixed_width_integer/fixed_width_integer_vector.hpp
-    storage/vector_compression/resolve_compressed_vector_type.hpp
-    storage/vector_compression/bitpacking/bitpacking_compressor.cpp
-    storage/vector_compression/bitpacking/bitpacking_compressor.hpp
-    storage/vector_compression/bitpacking/bitpacking_iterator.hpp
-    storage/vector_compression/bitpacking/bitpacking_decompressor.hpp
-    storage/vector_compression/bitpacking/bitpacking_vector.hpp
-    storage/vector_compression/bitpacking/bitpacking_vector.cpp
-    storage/vector_compression/bitpacking/bitpacking_vector_type.hpp
-    storage/vector_compression/vector_compression.cpp
-    storage/vector_compression/vector_compression.hpp
+
+    
     strong_typedef.hpp
     tasks/chunk_compression_task.cpp
     tasks/chunk_compression_task.hpp
