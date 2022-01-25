@@ -29,9 +29,9 @@ public:
   using BasesType = std::vector<T>;
   using DeviationsType = std::vector<uint8_t>;
 
-  explicit GddSegmentV1Fixed(const std::shared_ptr<const BasesType>& bases,
-                            const std::shared_ptr<const DeviationsType>& deviations,
-                            const std::shared_ptr<const compact::vector<size_t>>& reconstruction_list,
+  explicit GddSegmentV1Fixed(const std::shared_ptr<const std::vector<T>>& bases,
+                            const std::shared_ptr<const std::vector<uint8_t>>& deviations,
+                            const std::shared_ptr<const std::vector<size_t>>& reconstruction_list,
                             const T& segment_min=0, const T& segment_max=0, const size_t num_nulls=0);
 
   /**
@@ -108,7 +108,7 @@ public:
   // Accessors to the internal representation, required by the Iterators
   std::shared_ptr<const BasesType> get_bases() const { return bases; };
   std::shared_ptr<const DeviationsType> get_deviations() const { return deviations; }; 
-  std::shared_ptr<const compact::vector<size_t>> get_reconstruction_list() const { return reconstruction_list;  }; 
+  std::shared_ptr<const std::vector<size_t>> get_reconstruction_list() const { return reconstruction_list;  }; 
 
 
 
@@ -119,7 +119,7 @@ private:
   // GDD deviations
   const std::shared_ptr<const DeviationsType> deviations; 
   // Which base is used for the ith deviation to reconstruct the original value
-  const std::shared_ptr<const compact::vector<size_t>> reconstruction_list; 
+  const std::shared_ptr<const std::vector<size_t>> reconstruction_list; 
   // Minimum and maximum value that appears in this segment
   const T segment_min, segment_max; 
   // Number of NULLs in this segment

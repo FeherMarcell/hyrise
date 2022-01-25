@@ -65,13 +65,15 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     // Use the same types for bases and deviations as in the GddSegmentV1Fixed!
     std::vector<T> bases;
     std::vector<uint8_t> deviations;
-
+    std::vector<size_t> base_indexes;
     // reconstruction_list must be a shared pointer, because we cannot instantiate a compact vector 
     // without specifying the number of bits (which will be done in gdd_lsb::encode)
-    std::shared_ptr<compact::vector<size_t>> reconstruction_list; 
+    //std::shared_ptr<compact::vector<size_t>> reconstruction_list; 
+
 
     // Perform GD encoding of dense_values into bases, deviations and reconstruction list
-    gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, reconstruction_list);
+    //gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, reconstruction_list);
+    gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, base_indexes);
 
     // In V1 we don't do anything else, e.g. do not deduplicate deviations or precalculate base-devs mappings
 
@@ -83,7 +85,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
         std::make_shared<decltype(bases)>(bases), 
         std::make_shared<decltype(deviations)>(deviations), 
-        reconstruction_list,
+        std::make_shared<decltype(base_indexes)>(base_indexes),
         segment_min, segment_max,
         num_nulls
       );

@@ -22,7 +22,7 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
   const GddSegmentV1Fixed<T>& _segment;
   std::shared_ptr<const std::vector<T>> _bases_ptr;
   std::shared_ptr<const std::vector<uint8_t>> _devs_ptr;
-  std::shared_ptr<const compact::vector<size_t>> _recon_list_ptr;
+  std::shared_ptr<const std::vector<size_t>> _recon_list_ptr;
 
  public:
   
