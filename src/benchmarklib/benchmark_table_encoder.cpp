@@ -105,8 +105,9 @@ bool BenchmarkTableEncoder::encode(const std::string& table_name, const std::sha
       std::cout << " - Column '" << table_name << "." << table->column_name(column_id) << "' of type ";
       std::cout << column_data_type << " cannot be encoded as ";
       std::cout << encoding_config.default_encoding_spec.encoding_type << " and is ";
-      std::cout << "left Unencoded." << std::endl;
-      chunk_encoding_spec.emplace_back(EncodingType::Unencoded);
+      //std::cout << "left Unencoded." << std::endl;
+      std::cout << " encoded with Dictionary." << std::endl;
+      chunk_encoding_spec.emplace_back(EncodingType::Dictionary);
     }
   }
 
