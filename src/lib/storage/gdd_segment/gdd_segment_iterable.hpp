@@ -156,45 +156,19 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
 
     SegmentPosition<T> dereference() const {
 
-      try {
-        //std::cout << "Iterator dereference at ... " << _chunk_offset << std::flush;
-        const auto base_idx = *(_recon_it);
-        //std::cout << "base idx from recon list: " << base_idx << std::flush;
-        const auto is_null = (static_cast<ValueID>(base_idx) == _null_value_id);
+      const auto base_idx = *(_recon_it);
 
-
-        if (is_null) {
-          //std::cout << " NULL" << std::endl;
-          return SegmentPosition<T>{T{}, true, _chunk_offset};
-        }
-        //std::cout << " not NULL " << std::flush;
-        // Not null, reconstruct value
-        const T base = *(_bases_it + base_idx);
-        //std::cout << " base: " << base << std::flush;
-        const auto dev = *(_devs_it + _chunk_offset);
-        //std::cout << " dev: " << dev << std::flush;
-        const T value = gdd_lsb::reconstruct_value<T, 8U>(base, dev);
-        //std::cout << " value: " << value << std::endl;
-
-        return SegmentPosition<T>{value, false, _chunk_offset};
-      } catch(const std::exception& ex){
-        std::cout << "Exception during dereference: " << ex.what() << std::endl;
-      } catch (...) {
-        std::cout << "Exception during dereference" << std::endl;
-      }
-
-      //
-      
-      /*
-      if(_segment_ptr->isnull(_chunk_offset)){
+      const auto is_null = (static_cast<ValueID>(base_idx) == _null_value_id);
+      if (is_null) {
         return SegmentPosition<T>{T{}, true, _chunk_offset};
       }
 
-      const T value = _segment_ptr->get(_chunk_offset);
-      //std::cout << "Element value: " << value << std::endl;
+      // Not null, reconstruct value
+      const T base = *(_bases_it + base_idx);
+      const auto dev = *(_devs_it + _chunk_offset);
+      const T value = gdd_lsb::reconstruct_value<T, 8U>(base, dev);
+
       return SegmentPosition<T>{value, false, _chunk_offset};
-      */
-      
     }
 
    private:
@@ -230,34 +204,18 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
     friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
 
     SegmentPosition<T> dereference() const {
-      try{
+      const auto& chunk_offsets = this->chunk_offsets();
 
-        const auto& chunk_offsets = this->chunk_offsets();
+      const auto base_idx = *(_recon_it + chunk_offsets.offset_in_referenced_chunk);
+      const auto is_null = (static_cast<ValueID>(base_idx) == _null_value_id);
 
-        const auto base_idx = *(_recon_it + chunk_offsets.offset_in_referenced_chunk);
-        const auto is_null = (static_cast<ValueID>(base_idx) == _null_value_id);
-
-        if (is_null) return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
-        
-        // Not null, reconstruct value
-        const T base = *(_bases_it + base_idx);
-        const auto dev = *(_devs_it + chunk_offsets.offset_in_referenced_chunk);
-        return SegmentPosition<T>{gdd_lsb::reconstruct_value<T, 8U>(base, dev), false, chunk_offsets.offset_in_poslist};
-      } catch(const std::exception& ex){
-        std::cout << "Exception during PointAccessibleIterator dereference: " << ex.what() << std::endl;
-      } catch (...) {
-        std::cout << "Exception during PointAccessibleIterator dereference" << std::endl;
-      }
-      /*
-      if(__segment.isnull(chunk_offsets.offset_in_referenced_chunk)){
-        ////std::cout << "Element is NULL" << std::endl;
-        return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
-      }
-
-      const T value = __segment.get(chunk_offsets.offset_in_referenced_chunk);
-      ////std::cout << "Element value: " << value << std::endl;
+      if (is_null) return SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist};
+      
+      // Not null, reconstruct value
+      const T base = *(_bases_it + base_idx);
+      const auto dev = *(_devs_it + chunk_offsets.offset_in_referenced_chunk);
+      const T value = gdd_lsb::reconstruct_value<T, 8U>(base, dev);
       return SegmentPosition<T>{value, false, chunk_offsets.offset_in_poslist};
-      */
     }
 
    private:

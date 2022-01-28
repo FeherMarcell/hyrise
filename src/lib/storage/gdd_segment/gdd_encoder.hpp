@@ -81,7 +81,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     const auto segment_max = *(std::max_element(dense_values.begin(), dense_values.end()));
     
     // null_values has an entry for each stored element, which is True for NULLs
-    std::cout << "Bases: " << bases.size() << " / " << null_values.size() << std::endl;
+    //std::cout << "Bases: " << bases.size() << " / " << null_values.size() << std::endl;
     const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
         std::make_shared<decltype(bases)>(bases), 
         std::make_shared<decltype(deviations)>(deviations), 
