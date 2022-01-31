@@ -29,9 +29,9 @@ public:
   using BasesType = std::vector<T>;
   using DeviationsType = std::vector<uint8_t>;
 
-  explicit GddSegmentV1Fixed(const std::shared_ptr<const BasesType>& bases,
-                            const std::shared_ptr<const DeviationsType>& deviations,
-                            const std::shared_ptr<const compact::vector<size_t>>& reconstruction_list,
+  explicit GddSegmentV1Fixed(const std::shared_ptr<const std::vector<T>>& bases,
+                            const std::shared_ptr<const std::vector<uint8_t>>& deviations,
+                            const std::shared_ptr<const std::vector<size_t>>& reconstruction_list,
                             const T& segment_min=0, const T& segment_max=0, const size_t num_nulls=0);
 
   /**
@@ -79,6 +79,14 @@ public:
     RowIDPosList& matches,
     const std::shared_ptr<const AbstractPosList>& position_filter) const ;
 
+  void segment_between_table_scan(
+    const PredicateCondition& condition, 
+    const AllTypeVariant& left_value, 
+    const AllTypeVariant& right_value, 
+    const ChunkID chunk_id, 
+    RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) const ;
+
   /**@}*/
 
 
@@ -88,28 +96,40 @@ public:
   // Returns whether the element at chunk_offset is a NULL or not
   bool isnull(const ChunkOffset& chunk_offset) const ;
   
-
-  // Scan the given bases
-  void _scan_bases(
-    const std::vector<size_t>& base_indexes, 
+  // Scan a base range with the given predicate and add qualifying RowIDs to 'matches'
+  void _scan_base(
+    const size_t& base_index, 
     const PredicateCondition& condition, 
     const T& typed_query_value, 
     const ChunkID chunk_id, 
-    RowIDPosList& matches) const ;
+    RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) const ;
+
+  // Scan a base range with one of the BETWEEN predicates and add qualifying RowIDs to 'matches'
+  void _scan_base_between(
+    const size_t base_index, 
+    const PredicateCondition& condition, 
+    const T& left_query_value, 
+    const T& right_query_value, 
+    const ChunkID chunk_id, 
+    RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) const ;
   
   // Add all rows to matches, optionally without NULLs
-  void _all_to_matches(const ChunkID& chunk_id, RowIDPosList& matches, bool include_nulls=false, bool are_matches_preallocated=false) const;
+  void _all_to_matches(
+    const ChunkID& chunk_id, 
+    RowIDPosList& matches, 
+    const std::shared_ptr<const AbstractPosList>& position_filter,
+    bool include_nulls=false, 
+    bool are_matches_preallocated=false) const;
 
-  // Add rows to matches that use the given base idx
-  void _base_idx_to_matches(const size_t base_idx, const ChunkID& chunk_id, RowIDPosList& matches) const;
 
 public:
 
   // Accessors to the internal representation, required by the Iterators
   std::shared_ptr<const BasesType> get_bases() const { return bases; };
   std::shared_ptr<const DeviationsType> get_deviations() const { return deviations; }; 
-  std::shared_ptr<const compact::vector<size_t>> get_reconstruction_list() const { return reconstruction_list;  }; 
-
+  std::shared_ptr<const std::vector<size_t>> get_reconstruction_list() const { return reconstruction_list;  }; 
 
 
 private:
@@ -119,7 +139,7 @@ private:
   // GDD deviations
   const std::shared_ptr<const DeviationsType> deviations; 
   // Which base is used for the ith deviation to reconstruct the original value
-  const std::shared_ptr<const compact::vector<size_t>> reconstruction_list; 
+  const std::shared_ptr<const std::vector<size_t>> reconstruction_list; 
   // Minimum and maximum value that appears in this segment
   const T segment_min, segment_max; 
   // Number of NULLs in this segment

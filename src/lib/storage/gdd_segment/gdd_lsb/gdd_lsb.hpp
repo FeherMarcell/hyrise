@@ -31,7 +31,7 @@ namespace gdd_lsb
         static void encode(const std::vector<T>& data, 
                             std::vector<T>& bases_out, 
                             std::vector<uint8_t>& deviations_out,
-                            shared_ptr<compact::vector<size_t>>& base_indexes_ptr)
+                            std::vector<size_t>& base_indexes_out)
         {
             {   // Fill deviations compact vector (it uses the last bits, no transform needed)
                 deviations_out.resize(data.size());
@@ -60,7 +60,8 @@ namespace gdd_lsb
                 bases_out.shrink_to_fit();
             }
 
-            vector<size_t> base_indexes(data.size());
+            //vector<size_t> base_indexes(data.size());
+            base_indexes_out.resize(data.size());
             {   // Fill base indexes
                 T base;
                 size_t base_index_offset = 0;
@@ -69,13 +70,14 @@ namespace gdd_lsb
                     base = make_base<T, DEV_BITS>(el);
 
                     // Find base in bases_out and record its index 
-                    base_indexes[base_index_offset++] = std::distance(
+                    base_indexes_out[base_index_offset++] = std::distance(
                         bases_out.cbegin(), 
                         std::lower_bound(bases_out.cbegin(), bases_out.cend(), base)
                     );
                 }
             }
 
+            /*
             {   // Determine number of bits for base indexes and fill compact vector
                 const auto max_base_index = bases_out.size()-1;
                 const auto bits_needed = (unsigned) std::ceil(log2(max_base_index + 1U));
@@ -87,6 +89,7 @@ namespace gdd_lsb
                     (*base_indexes_ptr)[i] = base_indexes[i];
                 }
             }
+            */
 
         }
 
@@ -96,7 +99,7 @@ namespace gdd_lsb
         static T get(const size_t idx, 
                     const std::vector<T>& bases, 
                     const std::vector<uint8_t>& deviations,
-                    const shared_ptr<compact::vector<size_t>>& base_indexes_ptr)
+                    const shared_ptr<std::vector<size_t>>& base_indexes_ptr)
         {
             
             const auto deviation = deviations[idx];
@@ -141,7 +144,7 @@ namespace gdd_lsb
         static T get(const size_t idx, 
                     const std::shared_ptr<const std::vector<T>>& bases, 
                     const std::shared_ptr<const std::vector<uint8_t>>& deviations,
-                    const std::shared_ptr<const compact::vector<size_t>>& base_indexes_ptr)
+                    const std::shared_ptr<const std::vector<size_t>>& base_indexes_ptr)
         {
             //return get<T, DEV_BITS>(idx, (*bases), (*deviations), base_indexes_ptr);
             const auto deviation = (*deviations)[idx];
@@ -156,7 +159,7 @@ namespace gdd_lsb
         template<typename T, unsigned DEV_BITS> 
         static std::vector<T> decode(const std::vector<T>& bases, 
                             const compact::vector<unsigned, DEV_BITS>& deviations,
-                            const shared_ptr<compact::vector<size_t>>& base_indexes_ptr)
+                            const shared_ptr<std::vector<size_t>>& base_indexes_ptr)
         {
             const auto data_size = base_indexes_ptr->size();
             std::vector<T> result(data_size);
