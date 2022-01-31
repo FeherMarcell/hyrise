@@ -123,12 +123,6 @@ public:
     bool include_nulls=false, 
     bool are_matches_preallocated=false) const;
 
-  // Add rows to matches that use the given base idx
-  void _base_idx_to_matches(
-    const size_t base_idx, 
-    const ChunkID& chunk_id, 
-    RowIDPosList& matches,
-    const std::shared_ptr<const AbstractPosList>& position_filter) const;
 
 public:
 
@@ -136,14 +130,6 @@ public:
   std::shared_ptr<const BasesType> get_bases() const { return bases; };
   std::shared_ptr<const DeviationsType> get_deviations() const { return deviations; }; 
   std::shared_ptr<const std::vector<size_t>> get_reconstruction_list() const { return reconstruction_list;  }; 
-
-
-private:
-
-
-  void verify_position_filter(const ChunkID& chunk_id, const std::shared_ptr<const AbstractPosList>& position_filter) const;
-  void verify_matches(RowIDPosList& matches, const std::shared_ptr<const AbstractPosList>& position_filter) const;
-
 
 
 private:

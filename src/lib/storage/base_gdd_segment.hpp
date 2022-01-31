@@ -28,6 +28,20 @@ class BaseGddSegment : public AbstractEncodedSegment {
     const std::shared_ptr<const AbstractPosList>& position_filter) const = 0;
 
   /**
+   * @brief ColumnBetween TableScan operator
+   * 
+   */
+  virtual void segment_between_table_scan(
+    const PredicateCondition& condition, 
+    const AllTypeVariant& left_value, 
+    const AllTypeVariant& right_value, 
+    const ChunkID chunk_id, 
+    RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) const = 0;
+
+    
+
+  /**
    * @brief Returns encoding specific null value ID
    */
   virtual ValueID null_value_id() const = 0;
