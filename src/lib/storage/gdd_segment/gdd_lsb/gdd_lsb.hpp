@@ -155,6 +155,21 @@ namespace gdd_lsb
             return reconstruct_value<T, 8U>(base, deviation);
         }
 
+        template<typename T> 
+        static T get(const size_t idx, 
+                    const std::shared_ptr<const std::vector<T>>& bases, 
+                    const std::shared_ptr<const std::vector<uint8_t>>& deviations,
+                    const std::shared_ptr<const compact::vector<size_t>>& base_indexes_ptr)
+        {
+            //return get<T, DEV_BITS>(idx, (*bases), (*deviations), base_indexes_ptr);
+            const auto deviation = (*deviations)[idx];
+            const auto base_index = (*base_indexes_ptr)[idx];
+            const auto base = (*bases)[base_index];
+            // Make space for the deviation (shift left) and add deviation bits
+            //return (base << DEV_BITS) | deviation;
+            return reconstruct_value<T, 8U>(base, deviation);
+        }
+
 
         template<typename T, unsigned DEV_BITS> 
         static std::vector<T> decode(const std::vector<T>& bases, 

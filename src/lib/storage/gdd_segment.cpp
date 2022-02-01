@@ -22,7 +22,7 @@ using namespace std::chrono;
 template <typename T, typename U>
 GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const std::shared_ptr<const BasesType>& _bases,
                             const std::shared_ptr<const DeviationsType>& _deviations,
-                            const std::shared_ptr<const std::vector<size_t>>& _reconstruction_list,
+                            const std::shared_ptr<const ReconListType>& _reconstruction_list,
                             const T& segment_min, const T& segment_max, const size_t num_nulls) 
       : BaseGddSegment(data_type_from_type<T>()),
       bases{_bases},
@@ -58,9 +58,9 @@ template <typename T, typename U>
 std::shared_ptr<AbstractSegment> GddSegmentV1Fixed<T, U>::copy_using_allocator(const PolymorphicAllocator<size_t>& alloc) const {
   // TODO use allocator
 
-  auto new_bases = std::make_shared<std::vector<T>>(*bases);
-  auto new_deviations = std::make_shared<std::vector<uint8_t>>(*deviations);
-  auto new_reconstruction_list = std::make_shared<std::vector<size_t>>(*reconstruction_list);
+  auto new_bases = std::make_shared<BasesType>(*bases);
+  auto new_deviations = std::make_shared<DeviationsType>(*deviations);
+  auto new_reconstruction_list = std::make_shared<ReconListType>(*reconstruction_list);
   auto copy = std::make_shared<GddSegmentV1Fixed<T, U>>(
                                                 std::move(new_bases), 
                                                 std::move(new_deviations), 

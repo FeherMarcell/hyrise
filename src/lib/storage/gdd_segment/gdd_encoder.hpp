@@ -75,6 +75,14 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     //gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, reconstruction_list);
     gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, base_indexes);
 
+    // Make a minimal size compact vector from base indexes
+    const auto num_bits = base_indexes.empty() ? 1 : gdd_lsb::diagnostics::_address_bits(base_indexes.size());
+    compact::vector<size_t> base_indexes_cv(num_bits);
+    base_indexes_cv.resize(base_indexes.size());
+    for(auto i=0U ; i<base_indexes.size() ; ++i){
+      base_indexes_cv[i] = base_indexes[i];
+    }
+
     // In V1 we don't do anything else, e.g. do not deduplicate deviations or precalculate base-devs mappings
 
     const auto segment_min = *(std::min_element(dense_values.begin(), dense_values.end()));
@@ -85,7 +93,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
         std::make_shared<decltype(bases)>(bases), 
         std::make_shared<decltype(deviations)>(deviations), 
-        std::make_shared<decltype(base_indexes)>(base_indexes),
+        std::make_shared<decltype(base_indexes_cv)>(base_indexes_cv),
         segment_min, segment_max,
         num_nulls
       );
