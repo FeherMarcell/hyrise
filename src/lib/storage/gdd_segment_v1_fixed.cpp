@@ -78,7 +78,8 @@ size_t GddSegmentV1Fixed<T, U>::memory_usage(const MemoryUsageCalculationMode mo
   
   // We will ignore the memory calculation mode and always use the whole data.
 
-  const size_t bases_size = sizeof(T) * bases->size();
+  //const size_t bases_size = sizeof(T) * bases->size();
+  const size_t bases_size = ceil((bases->size() * base_bits) / 8U);
   const size_t devs_size = deviations->size(); // deviations are fixed 1 byte each
   const size_t recon_list_size = ceil((reconstruction_list->size() * reconstruction_list->bits()) / 8U);
   const size_t additional = 2 * sizeof(T) + sizeof(size_t); // min, max, num_nulls
@@ -102,7 +103,11 @@ T GddSegmentV1Fixed<T, U>::get(const ChunkOffset& chunk_offset) const {
   DebugAssert(chunk_offset < deviations->size(), "GddSegmentV1Fixed::get chunkoffset larger than deviations!");
   DebugAssert(reconstruction_list->at(chunk_offset) < bases->size(), "GddSegmentV1Fixed::get chunkoffset points to NULL!");
 
-  return gdd_lsb::std_bases::get((size_t)chunk_offset, bases, deviations, reconstruction_list);
+  const auto deviation = deviations->at(chunk_offset);
+  const auto base_index = reconstruction_list->at(chunk_offset);
+  const T base = bases->at(base_index);
+  return gdd_lsb::reconstruct_value<T, 8U>(base, deviation);
+  //return gdd_lsb::std_bases::get((size_t)chunk_offset, bases, deviations, reconstruction_list);
 }
 
 
@@ -259,7 +264,7 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
         // Scan the base range where the query value hits
         base_idx_to_scan = query_value_base_idx;
         
-        // Add all other complete base ranges
+        // Add all OTHER complete base ranges
         matches.reserve(matches.size() + (position_filter ? position_filter->size() : reconstruction_list->size()));
         if(position_filter){
           // Check only the position filter
@@ -298,7 +303,7 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
           }
         }
 
-        // Add higher base indexes 
+        // Add HIGHER base indexes 
         const size_t start_base_idx = is_query_base_present ? query_value_base_idx+1 : query_value_base_idx;
         
         matches.reserve(matches.size() + (position_filter ? position_filter->size() : reconstruction_list->size()));
@@ -321,14 +326,6 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
             }
           }
         }
-        /*
-        #pragma omp simd
-        for(auto i=0U ; i<reconstruction_list->size() ; ++i){
-          if(reconstruction_list->at(i) >= start_base_idx){
-            matches.push_back(RowID{chunk_id, ChunkOffset{i}});
-          }
-        }
-        */
         break;
       }
 
@@ -345,7 +342,7 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
           }
         }
 
-        // Add lower base indexes
+        // Add LOWER base indexes
         const size_t end_base_idx = (is_query_base_present) ? query_value_base_idx-1 : query_value_base_idx;
         matches.reserve(matches.size() + (position_filter ? position_filter->size() : reconstruction_list->size()));
         if(position_filter){
@@ -491,7 +488,7 @@ void GddSegmentV1Fixed<T, U>::segment_between_table_scan(
         _scan_base(right_base_idx, base_search_predicate, typed_right_value, chunk_id, matches, position_filter);
       }
 
-      // If there are any base ranges between left and right base index, add them
+      // If there are any base ranges BETWEEN left and right base index, add them
       const size_t start_base_idx = is_left_base_present ? left_base_idx+1 : 0;
       const size_t end_base_idx = is_right_base_present ? right_base_idx : bases->size();
       if(end_base_idx >= start_base_idx){

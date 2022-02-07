@@ -24,9 +24,10 @@ class GddSegmentV1Fixed : public BaseGddSegment {
 public:
 
   // Fixed 1B deviation
-  static const auto deviation_bits = 8U;
+  static constexpr auto deviation_bits = 8U;
+  static constexpr auto base_bits = sizeof(T)*8 - deviation_bits;
   // Both bases and deviations are stored in an std::vector
-  using BasesType = std::vector<T>;
+  using BasesType = compact::vector<T, base_bits>;
   using DeviationsType = std::vector<uint8_t>;
   using ReconListType = compact::vector<size_t>;
 
