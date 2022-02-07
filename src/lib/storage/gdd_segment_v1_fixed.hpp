@@ -19,14 +19,15 @@ namespace opossum {
  *  - No deviation lookup hashmap ('V1')
  *  - Deviations are not deduplicated ('V1')
  */
-template <typename T, typename=std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDD>, hana::type_c<T>)>>
+template <typename T, typename=std::enable_if_t<encoding_supports_data_type(enum_c<EncodingType, EncodingType::GDDV1Fixed>, hana::type_c<T>)>>
 class GddSegmentV1Fixed : public BaseGddSegment {
 public:
 
   // Fixed 1B deviation
-  static const auto deviation_bits = 8U;
+  static constexpr auto deviation_bits = 8U;
+  static constexpr auto base_bits = sizeof(T)*8 - deviation_bits;
   // Both bases and deviations are stored in an std::vector
-  using BasesType = std::vector<T>;
+  using BasesType = compact::vector<T, base_bits>;
   using DeviationsType = std::vector<uint8_t>;
   using ReconListType = compact::vector<size_t>;
 
@@ -69,7 +70,7 @@ public:
    * @defgroup BaseGddSegment interface
    * @{
    */
-  EncodingType encoding_type() const final { return EncodingType::GDD; };
+  EncodingType encoding_type() const final { return EncodingType::GDDV1Fixed; };
 
   ValueID null_value_id() const final;
 

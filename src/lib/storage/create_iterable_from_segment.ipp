@@ -2,7 +2,7 @@
 
 #include "storage/dictionary_segment/dictionary_segment_iterable.hpp"
 #include "storage/frame_of_reference_segment/frame_of_reference_segment_iterable.hpp"
-#include "storage/gdd_segment/gdd_segment_iterable.hpp"
+#include "storage/gdd_segment/v1-fixed/gdd_segment_iterable.hpp"
 #include "storage/lz4_segment/lz4_segment_iterable.hpp"
 #include "storage/run_length_segment/run_length_segment_iterable.hpp"
 #include "storage/segment_iterables/any_segment_iterable.hpp"

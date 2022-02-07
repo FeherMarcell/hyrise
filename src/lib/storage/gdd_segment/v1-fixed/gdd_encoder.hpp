@@ -6,7 +6,7 @@
 #include <iostream>
 
 #include "storage/base_segment_encoder.hpp"
-#include "storage/gdd_segment.hpp"
+#include "storage/gdd_segment_v1_fixed.hpp"
 #include "storage/segment_iterables/any_segment_iterable.hpp"
 #include "storage/value_segment.hpp"
 #include "storage/vector_compression/base_compressed_vector.hpp"
@@ -14,19 +14,17 @@
 #include "types.hpp"
 #include "utils/enum_constant.hpp"
 
-#include "gdd_lsb/gdd_lsb.hpp"
+#include "../gdd_lsb/gdd_lsb.hpp"
 
 namespace opossum {
 
 /**
- * @brief Encodes a segment using dictionary encoding and compresses its attribute vector using vector compression.
+ * @brief Encodes a segment using GDD-v1-fixed encoding (1 byte deviation, nothing fancy with the deviations)
  *
- * The algorithm first creates an attribute vector of standard size (uint32_t) and then compresses it
- * using fixed-width integer encoding.
  */
-class GddEncoder : public SegmentEncoder<GddEncoder> {
+class GddV1FixedEncoder : public SegmentEncoder<GddV1FixedEncoder> {
  public:
-  static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::GDD>;
+  static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::GDDV1Fixed>;
   static constexpr auto _uses_vector_compression = false;  // see base_segment_encoder.hpp for details
   
   
@@ -60,27 +58,28 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
       }
     });
 
-    
-    //using DeviationsVector = compact::vector<unsigned, GddSegmentV1Fixed<T>::deviation_bits>;
-    // Use the same types for bases and deviations as in the GddSegmentV1Fixed!
+
+    // Perform GD encoding of dense_values into bases, deviations and reconstruction list vectors
     std::vector<T> bases;
     std::vector<uint8_t> deviations;
     std::vector<size_t> base_indexes;
-    // reconstruction_list must be a shared pointer, because we cannot instantiate a compact vector 
-    // without specifying the number of bits (which will be done in gdd_lsb::encode)
-    //std::shared_ptr<compact::vector<size_t>> reconstruction_list; 
-
-
-    // Perform GD encoding of dense_values into bases, deviations and reconstruction list
-    //gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, reconstruction_list);
     gdd_lsb::std_bases::encode<T, 8U>(dense_values, bases, deviations, base_indexes);
 
     // Make a minimal size compact vector from base indexes
-    const auto num_bits = base_indexes.empty() ? 1 : gdd_lsb::diagnostics::_address_bits(base_indexes.size());
-    compact::vector<size_t> base_indexes_cv(num_bits);
-    base_indexes_cv.resize(base_indexes.size());
+    // calculate number of bits needed from the size of the bases vector, since we know that all bases
+    // are used in base_indexes
+    const auto max_base_index = bases.size()-1;
+    const auto num_bits = (max_base_index == 0) ? 1 : gdd_lsb::diagnostics::_address_bits(max_base_index);
+    compact::vector<size_t> base_indexes_cv(num_bits, base_indexes.size());
     for(auto i=0U ; i<base_indexes.size() ; ++i){
       base_indexes_cv[i] = base_indexes[i];
+    }
+
+    // Store the bases in a compact vector of size: sizeof(T)-1 bytes (deviations are fixed 1 byte)
+    //const auto base_bits = ;
+    compact::vector<T, GddSegmentV1Fixed<T>::base_bits> bases_cv(bases.size());
+    for(auto i=0U ; i<bases.size() ; ++i){
+      bases_cv[i] = bases[i];
     }
 
     // In V1 we don't do anything else, e.g. do not deduplicate deviations or precalculate base-devs mappings
@@ -91,7 +90,7 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     // null_values has an entry for each stored element, which is True for NULLs
     //std::cout << "Bases: " << bases.size() << " / " << null_values.size() << std::endl;
     const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
-        std::make_shared<decltype(bases)>(bases), 
+        std::make_shared<decltype(bases_cv)>(bases_cv), 
         std::make_shared<decltype(deviations)>(deviations), 
         std::make_shared<decltype(base_indexes_cv)>(base_indexes_cv),
         segment_min, segment_max,
@@ -100,8 +99,6 @@ class GddEncoder : public SegmentEncoder<GddEncoder> {
     
     return gdd_segment;
   }
-
- private:
   
 };
 

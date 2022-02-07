@@ -42,6 +42,10 @@ class ColumnBetweenTableScanImpl : public AbstractDereferencedColumnTableScanImp
   // Optimized scan on DictionarySegments
   void _scan_dictionary_segment(const BaseDictionarySegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
                                 const std::shared_ptr<const AbstractPosList>& position_filter);
+  
+  // Optimized scan on GDD Segments
+  void _scan_gdd_segment(const BaseGddSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
+                                const std::shared_ptr<const AbstractPosList>& position_filter);
 
   void _scan_sorted_segment(const AbstractSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
                             const std::shared_ptr<const AbstractPosList>& position_filter, const SortMode sort_mode);

@@ -3,10 +3,10 @@
 #include <type_traits>
 
 #include "storage/abstract_segment.hpp"
-#include "storage/gdd_segment.hpp"
+#include "storage/gdd_segment_v1_fixed.hpp"
 #include "storage/segment_iterables.hpp"
 #include "storage/vector_compression/resolve_compressed_vector_type.hpp"
-#include "gdd_lsb/gdd_lsb.hpp"
+#include "../gdd_lsb/gdd_lsb.hpp"
 
 #include <iostream>
 
@@ -20,7 +20,7 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
 
  private:
   const GddSegmentV1Fixed<T>& _segment;
-  std::shared_ptr<const std::vector<T>> _bases_ptr;
+  std::shared_ptr<const compact::vector<T, GddSegmentV1Fixed<T>::base_bits>> _bases_ptr;
   std::shared_ptr<const std::vector<uint8_t>> _devs_ptr;
   std::shared_ptr<const compact::vector<size_t>> _recon_list_ptr;
 

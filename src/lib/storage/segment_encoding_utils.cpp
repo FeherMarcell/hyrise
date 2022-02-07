@@ -5,7 +5,7 @@
 
 #include "storage/dictionary_segment/dictionary_encoder.hpp"
 #include "storage/frame_of_reference_segment/frame_of_reference_encoder.hpp"
-#include "storage/gdd_segment/gdd_encoder.hpp"
+#include "storage/gdd_segment/v1-fixed/gdd_encoder.hpp"
 #include "storage/lz4_segment/lz4_encoder.hpp"
 #include "storage/run_length_segment/run_length_encoder.hpp"
 
@@ -26,7 +26,7 @@ const auto encoder_for_type = std::map<EncodingType, std::shared_ptr<BaseSegment
     {EncodingType::RunLength, std::make_shared<RunLengthEncoder>()},
     {EncodingType::FixedStringDictionary, std::make_shared<DictionaryEncoder<EncodingType::FixedStringDictionary>>()},
     {EncodingType::FrameOfReference, std::make_shared<FrameOfReferenceEncoder>()},
-    {EncodingType::GDD, std::make_shared<GddEncoder>()},
+    {EncodingType::GDDV1Fixed, std::make_shared<GddV1FixedEncoder>()},
     {EncodingType::LZ4, std::make_shared<LZ4Encoder>()}};
 
 }  // namespace
