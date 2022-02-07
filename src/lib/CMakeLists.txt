@@ -31,10 +31,10 @@ set(
     storage/chunk_encoder.hpp
     storage/gdd_segment/gdd_lsb/permute.hpp
     storage/gdd_segment/gdd_lsb/gdd_lsb.hpp
-    storage/gdd_segment.hpp
-    storage/gdd_segment.cpp
-    storage/gdd_segment/gdd_encoder.hpp
-    storage/gdd_segment/gdd_segment_iterable.hpp
+    storage/gdd_segment_v1_fixed.hpp
+    storage/gdd_segment_v1_fixed.cpp
+    storage/gdd_segment/v1-fixed/gdd_encoder.hpp
+    storage/gdd_segment/v1-fixed/gdd_segment_iterable.hpp
     storage/create_iterable_from_reference_segment.ipp
     storage/create_iterable_from_segment.hpp
     storage/create_iterable_from_segment.ipp
