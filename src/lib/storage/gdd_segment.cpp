@@ -57,6 +57,7 @@ AllTypeVariant GddSegmentV1Fixed<T, U>::operator[](const ChunkOffset chunk_offse
 template <typename T, typename U>
 std::shared_ptr<AbstractSegment> GddSegmentV1Fixed<T, U>::copy_using_allocator(const PolymorphicAllocator<size_t>& alloc) const {
   // TODO use allocator
+  //std::cout << "GDD Segment - Copy using allocator" << std::endl;
 
   auto new_bases = std::make_shared<BasesType>(*bases);
   auto new_deviations = std::make_shared<DeviationsType>(*deviations);
@@ -76,32 +77,14 @@ std::shared_ptr<AbstractSegment> GddSegmentV1Fixed<T, U>::copy_using_allocator(c
 template <typename T, typename U>
 size_t GddSegmentV1Fixed<T, U>::memory_usage(const MemoryUsageCalculationMode mode) const {
   
-  return 0U;
-  /*
-  // Calculate the best compression rate at 
-  size_t max_compression_bases = _gdd_profile->at(0), max_compression_dev_bits = 0, best_total_data_bits = 0, total_data_bits=0;
-  auto best_compression = gdd_lsb::calculate_compression_rate_percent<T>(max_compression_dev_bits, max_compression_bases, _attribute_vector->size(), best_total_data_bits);
-  //for(size_t i=1 ; i<bases_nums.size() ; ++i){
-  for(size_t i=1 ; i<=8 ; ++i){
+  // We will ignore the memory calculation mode and always use the whole data.
 
-    const auto compression = gdd_lsb::calculate_compression_rate_percent<T>(i, _gdd_profile->at(i), _attribute_vector->size(), total_data_bits);
-    if(compression > best_compression){
-      max_compression_bases = _gdd_profile->at(i);
-      max_compression_dev_bits = i;
-      best_total_data_bits = total_data_bits;
-    }
-  }
-  // calculate the size
-  return ceil(best_total_data_bits / 8.0);
-  */
-  /*
-  const auto common_elements_size = sizeof(*this) + _attribute_vector->data_size();
+  const size_t bases_size = sizeof(typename decltype(bases)::element_type::value_type) * bases->size();
+  const size_t devs_size = deviations->size(); // deviations are fixed 1 byte each
+  const size_t recon_list_size = ceil((reconstruction_list->size() * reconstruction_list->bits()) / 8U);
+  const size_t additional = 2 * sizeof(T) + sizeof(size_t); // min, max, num_nulls
 
-  if constexpr (std::is_same_v<T, pmr_string>) {
-    return common_elements_size + string_vector_memory_usage(*_dictionary, mode);
-  }
-  return common_elements_size + _dictionary->size() * sizeof(typename decltype(_dictionary)::element_type::value_type);
-  */
+  return bases_size + devs_size + recon_list_size + additional;
 }
 
 
@@ -438,7 +421,6 @@ void GddSegmentV1Fixed<T, U>::segment_between_table_scan(
 
   // Make sure left <= right
   if(typed_right_value < typed_left_value){
-    
     const auto tmp = typed_left_value;
     typed_left_value = typed_right_value;
     typed_right_value = tmp;
@@ -481,7 +463,7 @@ void GddSegmentV1Fixed<T, U>::segment_between_table_scan(
     
     // Special case: both query values are in the same base range, this has to be scanned with the BETWEEN op
     if(is_left_base_present && is_right_base_present && left_base_idx == right_base_idx){
-      std::cout << "Both values hit base #" << left_base_idx << ", running between scan" << std::endl;
+      //std::cout << "Both values hit base #" << left_base_idx << ", running between scan" << std::endl;
       _scan_base_between(left_base_idx, condition, typed_left_value, typed_right_value, chunk_id, matches, position_filter);
       //return;
     }
@@ -615,9 +597,9 @@ void GddSegmentV1Fixed<T, U>::_scan_base(
     else{
       // Iterate the full reconstruction list and simply add qualifying chunk offsets to matches
       #pragma omp simd
-      for(auto i=0U ; i<reconstruction_list->size() ; ++i) {
-        if(if_match(ChunkOffset{i})){
-          matches.push_back(RowID{chunk_id, ChunkOffset{i}});
+      for(auto i=ChunkOffset{0} ; i<reconstruction_list->size() ; ++i) {
+        if(if_match(i)){
+          matches.push_back(RowID{chunk_id, i});
         }
       }  
     }
@@ -693,9 +675,9 @@ void GddSegmentV1Fixed<T, U>::_scan_base_between(
     else{
       // Iterate the full reconstruction list and simply add qualifying chunk offsets to matches
       #pragma omp simd
-      for(auto i=0U ; i<reconstruction_list->size() ; ++i) {
-        if(if_match(ChunkOffset{i})){
-          matches.push_back(RowID{chunk_id, ChunkOffset{i}});
+      for(auto i=ChunkOffset{0} ; i<reconstruction_list->size() ; ++i) {
+        if(if_match(i)){
+          matches.push_back(RowID{chunk_id, i});
         }
       }  
     }
@@ -710,19 +692,6 @@ void GddSegmentV1Fixed<T, U>::_all_to_matches(
   bool include_nulls, 
   bool are_matches_preallocated) const 
 {
-  //std::cout << "Adding all ChunkOffsets of the whole segment" << std::endl;
-  //const auto t1 = high_resolution_clock::now();
-  
-  /*
-  if(!are_matches_preallocated){
-    // Preallocate 'matches' if it has not been already
-    //matches.resize(matches.size() + reconstruction_list->size(), RowID{chunk_id, ChunkOffset{0}});
-    matches.reserve(matches.size() +  reconstruction_list->size());
-  }
-  */
-
-  
-  
   matches.reserve(matches.size() + (position_filter ? position_filter->size() : reconstruction_list->size()));
 
   if(include_nulls == true || num_nulls == 0) {
