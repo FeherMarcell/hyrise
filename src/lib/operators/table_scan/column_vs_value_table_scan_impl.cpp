@@ -42,14 +42,6 @@ void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
     const std::shared_ptr<const AbstractPosList>& position_filter) {
   
   const auto& chunk_sorted_by = _in_table->get_chunk(chunk_id)->individually_sorted_by();
-  //const auto chunk_size = _in_table->get_chunk(chunk_id)->size();
-  /*
-  if(!position_filter->empty() && position_filter->size() != chunk_size) {
-    std::cout << "Position Filter with " << position_filter->size() << " / " << chunk_size << " elements" << std::endl;
-  }
-  */
-
-  //const auto t1 = high_resolution_clock::now();
 
   if (!chunk_sorted_by.empty()) {
     for (const auto& sorted_by : chunk_sorted_by) {
@@ -70,14 +62,6 @@ void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
   else {
     _scan_generic_segment(segment, chunk_id, matches, position_filter);
   }
-  /*
-  const auto t2 = high_resolution_clock::now();
-  std::cout << "ColumnVsValue took " << duration<double, std::milli>(t2-t1).count() << " ms";
-  if(sorted_segment_scanned){
-    std::cout << " on a sorted segment";
-  }
-  std::cout << std::endl;
-  */
 
 }
 

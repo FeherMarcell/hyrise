@@ -57,7 +57,10 @@ void ColumnBetweenTableScanImpl::_scan_non_reference_segment(
   // Select optimized or generic scanning implementation based on segment type
   if (dictionary_segment) {
     _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
-  } else {
+  } else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
+    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+  }
+  else {
     _scan_generic_segment(segment, chunk_id, matches, position_filter);
   }
 }
@@ -171,6 +174,19 @@ void ColumnBetweenTableScanImpl::_scan_dictionary_segment(
     // No need to check for NULL because NULL would be represented as a value ID outside of our range
     _scan_with_iterators<false>(comparator, left_it, left_end, chunk_id, matches);
   });
+}
+
+void ColumnBetweenTableScanImpl::_scan_gdd_segment(
+    const BaseGddSegment& base_gdd_segment, const ChunkID chunk_id, RowIDPosList& matches,
+    const std::shared_ptr<const AbstractPosList>& position_filter) 
+{
+  // GDD Segment implements predicate evaluation directly
+  base_gdd_segment.segment_between_table_scan(
+        predicate_condition, 
+        left_value, right_value, 
+        chunk_id, 
+        matches,
+        position_filter);  
 }
 
 void ColumnBetweenTableScanImpl::_scan_sorted_segment(const AbstractSegment& segment, const ChunkID chunk_id,
