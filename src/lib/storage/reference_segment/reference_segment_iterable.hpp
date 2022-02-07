@@ -10,7 +10,7 @@
 #include "storage/dictionary_segment.hpp"
 #include "storage/fixed_string_dictionary_segment.hpp"
 #include "storage/frame_of_reference_segment.hpp"
-#include "storage/gdd_segment.hpp"
+#include "storage/gdd_segment_v1_fixed.hpp"
 #include "storage/reference_segment.hpp"
 #include "storage/run_length_segment.hpp"
 #include "storage/segment_accessor.hpp"
@@ -78,8 +78,6 @@ class ReferenceSegmentIterable : public SegmentIterable<ReferenceSegmentIterable
           if constexpr (std::is_same_v<SegmentType, GddSegmentV1Fixed<T>>){
             if constexpr (std::is_same_v<T, int32_t>) return  
             if constexpr (std::is_same_v<T, int64_t>) return  
-            if constexpr (std::is_same_v<T, float>) return  
-            if constexpr (std::is_same_v<T, double>) return  
           }
 #endif
 

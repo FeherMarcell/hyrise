@@ -7,7 +7,6 @@
 #include "sorted_segment_search.hpp"
 #include "storage/base_dictionary_segment.hpp"
 #include "storage/base_gdd_segment.hpp"
-#include "storage/gdd_segment.hpp"
 #include "storage/create_iterable_from_segment.hpp"
 #include "storage/resolve_encoded_segment_type.hpp"
 #include "storage/segment_iterables/create_iterable_from_attribute_vector.hpp"

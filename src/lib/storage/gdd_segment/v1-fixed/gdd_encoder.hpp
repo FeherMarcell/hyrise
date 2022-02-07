@@ -14,19 +14,17 @@
 #include "types.hpp"
 #include "utils/enum_constant.hpp"
 
-#include "gdd_lsb/gdd_lsb.hpp"
+#include "../gdd_lsb/gdd_lsb.hpp"
 
 namespace opossum {
 
 /**
- * @brief Encodes a segment using dictionary encoding and compresses its attribute vector using vector compression.
+ * @brief Encodes a segment using GDD-v1-fixed encoding (1 byte deviation, nothing fancy with the deviations)
  *
- * The algorithm first creates an attribute vector of standard size (uint32_t) and then compresses it
- * using fixed-width integer encoding.
  */
-class GddEncoder : public SegmentEncoder<GddEncoder> {
+class GddV1FixedEncoder : public SegmentEncoder<GddV1FixedEncoder> {
  public:
-  static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::GDD>;
+  static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::GDDV1Fixed>;
   static constexpr auto _uses_vector_compression = false;  // see base_segment_encoder.hpp for details
   
   

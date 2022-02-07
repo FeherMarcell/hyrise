@@ -6,7 +6,7 @@
 #include "storage/gdd_segment_v1_fixed.hpp"
 #include "storage/segment_iterables.hpp"
 #include "storage/vector_compression/resolve_compressed_vector_type.hpp"
-#include "gdd_lsb/gdd_lsb.hpp"
+#include "../gdd_lsb/gdd_lsb.hpp"
 
 #include <iostream>
 

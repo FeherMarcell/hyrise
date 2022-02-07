@@ -285,7 +285,7 @@ void BinaryWriter::_write_segment(const GddSegmentV1Fixed<T>& gdd_segment,
 
   // GDDTODO: write me
 }
-
+/*
 template <typename T>
 void BinaryWriter::_write_segment(const GddSegmentV2Fixed<T>& gdd_segment,
                                   bool column_is_nullable, std::ofstream& ofstream) {
@@ -293,6 +293,7 @@ void BinaryWriter::_write_segment(const GddSegmentV2Fixed<T>& gdd_segment,
 
   // GDDTODO: write me
 }
+*/
 
 template <typename T>
 void BinaryWriter::_write_segment(const LZ4Segment<T>& lz4_segment, bool column_is_nullable, std::ofstream& ofstream) {

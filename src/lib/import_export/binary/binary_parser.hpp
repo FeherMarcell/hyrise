@@ -12,7 +12,7 @@
 #include "storage/encoding_type.hpp"
 #include "storage/fixed_string_dictionary_segment.hpp"
 #include "storage/frame_of_reference_segment.hpp"
-#include "storage/gdd_segment.hpp"
+#include "storage/gdd_segment_v1_fixed.hpp"
 #include "storage/lz4_segment.hpp"
 #include "storage/run_length_segment.hpp"
 #include "storage/table.hpp"
