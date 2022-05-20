@@ -40,12 +40,19 @@ std::string ColumnVsValueTableScanImpl::description() const { return "ColumnVsVa
 void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
     const AbstractSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
     const std::shared_ptr<const AbstractPosList>& position_filter) {
+
+  if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
+    //std::cout << "Scanning GDD Segment (col vs value: " << value << ")" << std::endl;
+    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+    return;
+  }
   
   const auto& chunk_sorted_by = _in_table->get_chunk(chunk_id)->individually_sorted_by();
 
   if (!chunk_sorted_by.empty()) {
     for (const auto& sorted_by : chunk_sorted_by) {
       if (sorted_by.column == _column_id) {
+        //std::cout << "Scanning Sorted Segment (col vs value: " << value << ")" << std::endl;
         _scan_sorted_segment(segment, chunk_id, matches, position_filter, sorted_by.sort_mode);
         ++num_chunks_with_binary_search;
         return;
@@ -54,11 +61,10 @@ void ColumnVsValueTableScanImpl::_scan_non_reference_segment(
   }
 
   if (const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&segment)) {
+    //std::cout << "Scanning Dictionary Segment (col vs value: " << value << ")" << std::endl;
     _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
   } 
-  else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
-    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
-  }
+   
   else {
     _scan_generic_segment(segment, chunk_id, matches, position_filter);
   }
