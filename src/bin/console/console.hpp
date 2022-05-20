@@ -116,7 +116,10 @@ class Console : public Singleton<Console> {
   int _show_memory_usage(const std::string& args);
   int _show_encoding(const std::string& args);
   int _change_encoding(const std::string& args);
+  int _encoded_chunk_details(const std::string& args);
   int _export_table(const std::string& args);
+  int _measure_sql_exec_time(const std::string& args);
+
   int _exec_script(const std::string& script_file);
   int _print_table(const std::string& args);
   int _visualize(const std::string& input);

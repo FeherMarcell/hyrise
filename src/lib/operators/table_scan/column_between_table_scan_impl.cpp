@@ -17,6 +17,8 @@
 #include "resolve_type.hpp"
 #include "type_comparison.hpp"
 
+#include <iostream>
+
 namespace opossum {
 
 ColumnBetweenTableScanImpl::ColumnBetweenTableScanImpl(const std::shared_ptr<const Table>& in_table,
@@ -37,6 +39,13 @@ std::string ColumnBetweenTableScanImpl::description() const { return "ColumnBetw
 void ColumnBetweenTableScanImpl::_scan_non_reference_segment(
     const AbstractSegment& segment, const ChunkID chunk_id, RowIDPosList& matches,
     const std::shared_ptr<const AbstractPosList>& position_filter) {
+
+  if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
+    //std::cout << "Scanning GDD Segment (col between: " << left_value << " and " << right_value <<")" << std::endl;
+    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
+    return;
+  }
+
   const auto& chunk_sorted_by = _in_table->get_chunk(chunk_id)->individually_sorted_by();
 
   // Check if a sorted scan is possible for the current predicate. Do not use the sorted search for predicates on
@@ -48,6 +57,7 @@ void ColumnBetweenTableScanImpl::_scan_non_reference_segment(
       !(dictionary_segment && position_filter && _in_table->column_data_type(_column_id) == DataType::String)) {
     for (const auto& sorted_by : chunk_sorted_by) {
       if (sorted_by.column == _column_id) {
+        //std::cout << "Scanning Sorted Segment (col between: " << left_value << " and " << right_value <<")" << std::endl;
         _scan_sorted_segment(segment, chunk_id, matches, position_filter, sorted_by.sort_mode);
         return;
       }
@@ -57,9 +67,8 @@ void ColumnBetweenTableScanImpl::_scan_non_reference_segment(
   // Select optimized or generic scanning implementation based on segment type
   if (dictionary_segment) {
     _scan_dictionary_segment(*dictionary_segment, chunk_id, matches, position_filter);
-  } else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&segment)) {
-    _scan_gdd_segment(*gdd_segment, chunk_id, matches, position_filter);
-  }
+    //std::cout << "Scanning Dictionary Segment (col between: " << left_value << " and " << right_value <<")" << std::endl;
+  } 
   else {
     _scan_generic_segment(segment, chunk_id, matches, position_filter);
   }

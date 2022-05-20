@@ -90,8 +90,8 @@ class GddV1FixedEncoder : public SegmentEncoder<GddV1FixedEncoder> {
     // null_values has an entry for each stored element, which is True for NULLs
     //std::cout << "Bases: " << bases.size() << " / " << null_values.size() << std::endl;
     const auto gdd_segment = std::make_shared<GddSegmentV1Fixed<T>>(
-        std::make_shared<decltype(bases_cv)>(bases_cv), 
-        std::make_shared<decltype(deviations)>(deviations), 
+        bases_cv, 
+        deviations, 
         std::make_shared<decltype(base_indexes_cv)>(base_indexes_cv),
         segment_min, segment_max,
         num_nulls

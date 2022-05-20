@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "abstract_encoded_segment.hpp"
 
@@ -15,6 +16,9 @@ class BaseGddSegment : public AbstractEncodedSegment {
   using AbstractEncodedSegment::AbstractEncodedSegment;
 
   EncodingType encoding_type() const override = 0;
+
+  // Print internal details of the GDD encoding
+  virtual std::string print() const = 0;
 
   /**
    * @brief ColumnVsValue TableScan operator
