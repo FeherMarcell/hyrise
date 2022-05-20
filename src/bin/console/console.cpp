@@ -162,6 +162,8 @@ Console::Console()
   register_command("show_memory", std::bind(&Console::_show_memory_usage, this, std::placeholders::_1));
   register_command("show_encoding", std::bind(&Console::_show_encoding, this, std::placeholders::_1));
   register_command("change_encoding_to", std::bind(&Console::_change_encoding, this, std::placeholders::_1));
+  register_command("encoded_chunk_details", std::bind(&Console::_encoded_chunk_details, this, std::placeholders::_1));
+  register_command("measure_sql_exec_time", std::bind(&Console::_measure_sql_exec_time, this, std::placeholders::_1));
 }
 
 Console::~Console() {
@@ -328,6 +330,66 @@ int Console::_eval_sql(const std::string& sql) {
   return ReturnCode::Ok;
 }
 
+
+int Console::_measure_sql_exec_time(const std::string& sql) {
+  out("Running the following sql 10x: " + sql + "\n");
+
+  // each execution time in milliseconds
+  std::vector<int> execution_times;
+
+  for(auto i=0U ; i<10 ; ++i){
+    if (!_initialize_pipeline(sql)) return ReturnCode::Error;
+
+    try {
+      _sql_pipeline->get_result_tables();
+    } catch (const InvalidInputException& exception) {
+      out(std::string(exception.what()) + "\n");
+      out("Following statements have not been executed.\n");
+      if (!_explicitly_created_transaction_context && _sql_pipeline->statement_count() > 1) {
+        out("All previous statements have been committed.\n");
+      }
+
+      // Store the transaction context as potentially modified by the pipeline. It might be a new context if a transaction
+      // was started or nullptr if we are in auto-commit mode or the last transaction was finished.
+      _explicitly_created_transaction_context = _sql_pipeline->transaction_context();
+
+      return ReturnCode::Error;
+    }
+
+    _explicitly_created_transaction_context = _sql_pipeline->transaction_context();
+
+    const auto [pipeline_status, table] = _sql_pipeline->get_result_table();
+
+    // Failed (i.e., conflicted) pipelines should be impossible in the single-user console
+    Assert(pipeline_status == SQLPipelineStatus::Success, "Unexpected pipeline status");
+
+    auto row_count = table ? table->row_count() : 0;
+    
+
+    const auto metrics = _sql_pipeline->metrics();
+    // metrics stores times in nanoseconds, convert it to millisec
+    assert(metrics.statement_metrics.size() == 1);
+
+      auto total_execute_nanos = std::chrono::nanoseconds::zero();
+     for (const auto& statement_metric : metrics.statement_metrics) {
+        total_execute_nanos += statement_metric->plan_execution_duration;
+    }
+
+    //const auto exec_time = *(metrics.statement_metrics[0]).plan_execution_duration;
+    int exec_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_execute_nanos).count();
+    execution_times.push_back(exec_time_ms);
+    out("Run " + std::to_string(i+1) + ": " + std::to_string(row_count) + " rows, "+std::to_string(exec_time_ms)+" ms \n");
+  }
+  
+  std::sort(execution_times.begin(),  execution_times.end());
+  const auto avg = std::accumulate(execution_times.begin(),  execution_times.end(), 0) / (float)execution_times.size();
+  std::cout << "Avg: " << avg << " ms, range: " << execution_times.front() << " - " << execution_times.back() << "\n";
+  
+  return ReturnCode::Ok;
+}
+
+
+
 void Console::register_command(const std::string& name, const CommandFunction& func) { _commands[name] = func; }
 
 Console::RegisteredCommands Console::commands() { return _commands; }
@@ -457,6 +519,8 @@ int Console::_help(const std::string&) {
   out("  show_memory TABLENAME                   - Print memory usage of all columns of the given table\n");
   out("  show_encoding [TABLENAME]               - List encoding of columns of a table (or all tables) \n");
   out("  change_encoding_to\n    ENCODING TABLENAME COLUMNNAME [CHUNK_IDX] - Change the encoding of a column. All chunks are re-encoded if you do not specify the chunk index\n");
+  out("  encoded_chunk_details TABLENAME COLUMNNAME [CHUNK_IDX] - Display details of a Dictionary or GDD encoded column \n");
+  out("  measure_sql_exec_time sql - Runs the provided SQL statement 10x and prints the avearge, min and max execution times \n");
   out("  pwd                                     - Print current working directory\n");
   out("  load_plugin FILE                        - Load and start plugin stored at FILE\n");
   out("  unload_plugin NAME                      - Stop and unload the plugin libNAME.so/dylib (also clears the query cache)\n");  // NOLINT
@@ -614,6 +678,56 @@ int Console::_load_table(const std::string& args) {
   }
 
   return ReturnCode::Ok;
+}
+
+int Console::_encoded_chunk_details(const std::string& args) {
+  std::vector<std::string> arguments = trim_and_split(args);
+  if (arguments.empty()) {
+    out("Usage:\n");
+    out("  encoded_chunk_details TABLENAME COLUMN_NAME [CHUNK_INDEX]\n");
+    return ReturnCode::Error;
+  }
+
+  const auto tablename = arguments[0];
+  const auto column_name = arguments[1];
+  // Set to -1 if none was given (means all chunks)
+  const auto chunk_idx = arguments.size() > 2 ? ChunkID(std::stoi(arguments[2])) : -1;
+
+  // Check that the table exists
+  if (!Hyrise::get().storage_manager.has_table(tablename)) {
+    out("Table \"" + tablename + "\" Does not exist.\n");
+    return ReturnCode::Error;
+  }
+
+  const auto& table = Hyrise::get().storage_manager.get_table(tablename);
+  out("Table \"" + tablename + "\"\n");
+
+  // Get the column ID (fails if there is no such column)
+  const ColumnID column_id = table->column_id_by_name(column_name);
+
+
+  // All: start=0, end=table->chunk_count()
+  // Given chunk_idx: start=chunk_idx, end=chunk_idx
+  ChunkID start = (chunk_idx >= 0) ? ChunkID(chunk_idx) : ChunkID(0);
+  ChunkID end = (chunk_idx >= 0) ? ChunkID(chunk_idx) : table->chunk_count();
+  for (ChunkID chunk_id = start; chunk_id < end; ++chunk_id) {
+    const auto chunk = table->get_chunk(chunk_id);
+    const auto segment = chunk->get_segment(column_id);
+
+    if(const auto* dictionary_segment = dynamic_cast<const BaseDictionarySegment*>(&*segment)){
+      out(" Column is Dictionary\n");
+      out("Dictionary size: " + std::to_string(dictionary_segment->unique_values_count()) + " / " + std::to_string(dictionary_segment->size()) );
+    }
+    else if (const auto* gdd_segment = dynamic_cast<const BaseGddSegment*>(&*segment)) {
+      out(" Column is GDD\n");
+      out(gdd_segment->print());
+    }
+    else {
+      out(tablename+"."+column_name+" is not encoded with Dict or GDD\n");
+      
+    }
+  }
+    return ReturnCode::Ok;
 }
 
 int Console::_change_encoding(const std::string& args) {
