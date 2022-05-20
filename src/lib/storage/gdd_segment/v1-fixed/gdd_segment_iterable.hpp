@@ -5,13 +5,215 @@
 #include "storage/abstract_segment.hpp"
 #include "storage/gdd_segment_v1_fixed.hpp"
 #include "storage/segment_iterables.hpp"
-#include "storage/vector_compression/resolve_compressed_vector_type.hpp"
-#include "../gdd_lsb/gdd_lsb.hpp"
+//#include "storage/vector_compression/resolve_compressed_vector_type.hpp"
+//#include "../gdd_lsb/gdd_lsb.hpp"
 
-#include <iostream>
+//#include <iostream>
 
 namespace opossum {
 
+
+template <typename T>
+class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegmentV1FixedIterable<T>> {
+ public:
+  using ValueType = T;
+  using SegmentType = GddSegmentV1Fixed<T>;
+
+ private:
+  const std::shared_ptr<SegmentType> _segment_ptr;
+
+ public:
+  
+  explicit GddSegmentV1FixedIterable(const SegmentType& segment)  : 
+    _segment_ptr(std::make_shared<SegmentType>(segment)) 
+    { }
+
+  template <typename Functor>
+  void _on_with_iterators(const Functor& functor) const {
+    // Must call 'functor' with 2 AbstractSegmentIterators: (begin, end)
+    // These iterators should point to the beginning and end of all segment values 
+
+    // All values in the segment are accessed in order when this method is called
+
+    _segment_ptr->access_counter[SegmentAccessCounter::AccessType::Sequential] += _segment_ptr->size();
+    //std::cout << "GddSegmentV1Fixed _on_with_iterators, no position list" << std::endl;
+    ////std::cout << "Segment has " << _segment.size() << " elements" << std::endl;
+
+    // Decompress the whole segment and iterate the std::vector<T>
+    using ValueIterator = typename std::vector<T>::const_iterator;
+    std::vector<T> decompressed_segment;
+    _segment_ptr->decompress(decompressed_segment);
+    auto begin = Iterator<ValueIterator>{decompressed_segment.cbegin(), ChunkOffset{0u}};
+    auto end = Iterator<ValueIterator>{decompressed_segment.cend(), static_cast<ChunkOffset>(decompressed_segment.size())};
+    functor(begin, end);
+    
+    /*
+    // Iterate and dereference each value using the segment.get()
+    auto begin = Iterator{ _segment, ChunkOffset{0u} };
+    auto end = Iterator{ _segment, static_cast<ChunkOffset>(_segment.size()) };
+    functor(begin, end);
+    */
+  }
+
+  template <typename Functor, typename PosListType>
+  void _on_with_iterators(const std::shared_ptr<PosListType>& position_filter, const Functor& functor) const {
+    // All offsets in position_filter will be accessed by the functor
+
+    //std::cout << "GddSegmentV1Fixed _on_with_iterators with position filter of " << position_filter->size() << " elements" << std::endl;
+    _segment_ptr->access_counter[SegmentAccessCounter::access_type(*position_filter)] += position_filter->size();
+
+    using PosListIteratorType = decltype(position_filter->cbegin());
+
+    auto begin = PointAccessIterator<PosListIteratorType>{
+        _segment_ptr, 
+        position_filter->cbegin(),
+        position_filter->cbegin()
+    };
+
+    auto end = PointAccessIterator<PosListIteratorType>{
+        _segment_ptr, 
+        position_filter->cbegin(),
+        position_filter->cend()
+    };
+
+    functor(begin, end);
+  }
+
+  size_t _on_size() const { return _segment_ptr->size(); }
+
+ private:
+  
+  // Iterate an std::vector<T>
+  template <typename ValueIterator>
+  class Iterator : public AbstractSegmentIterator<Iterator<ValueIterator>, SegmentPosition<T>> {
+   public:
+    using ValueType = T;
+    using IterableType = GddSegmentV1FixedIterable<T>;
+
+   public:
+    // Begin and End Iterator
+    explicit Iterator(ValueIterator data_it, ChunkOffset chunk_offset)
+        : _chunk_offset{chunk_offset}, _data_it{std::move(data_it)} { }
+
+   private:
+    friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
+
+    void increment() {
+      ++_chunk_offset;
+      ++_data_it;
+    }
+
+    void decrement() {
+      --_chunk_offset;
+      --_data_it;
+    }
+
+    void advance(std::ptrdiff_t n) {
+      _chunk_offset += n;
+      _data_it += n;
+    }
+
+    bool equal(const Iterator& other) const { return _data_it == other._data_it; }
+
+    std::ptrdiff_t distance_to(const Iterator& other) const {
+      return std::ptrdiff_t{other._chunk_offset} - std::ptrdiff_t{_chunk_offset};
+    }
+
+    SegmentPosition<T> dereference() const {
+      return SegmentPosition<T>{*_data_it, false, _chunk_offset};
+    }
+
+   private:
+    ChunkOffset _chunk_offset;
+    ValueIterator _data_it;
+  };
+
+  /*
+  class Iterator : public AbstractSegmentIterator<Iterator, SegmentPosition<T>> {
+   public:
+
+    // These 2 using declarations are needed from AnySegmentIterable
+    using ValueType = T;
+    using IterableType = GddSegmentV1FixedIterable<T>;
+
+    explicit Iterator(const SegmentType& segment, ChunkOffset chunk_offset) : 
+              _segment{segment}, 
+              _chunk_offset{chunk_offset} 
+        { }
+    
+   private:
+    // grants the boost::iterator_facade access to the private interface
+    // Mandatory methods to implement: https://www.boost.org/doc/libs/1_46_0/libs/iterator/doc/iterator_facade.html
+    friend class boost::iterator_core_access;  
+
+    void increment() {
+      ++_chunk_offset;
+    }
+
+    void decrement() {
+      --_chunk_offset;
+    }
+
+    void advance(std::ptrdiff_t n) {
+      _chunk_offset += n;
+    }
+
+    bool equal(const Iterator& other) const { 
+      return _chunk_offset == other._chunk_offset; 
+    }
+
+    std::ptrdiff_t distance_to(const Iterator& other) const { return other._chunk_offset - _chunk_offset; }
+
+    SegmentPosition<T> dereference() const {
+
+      return _segment.isnull(_chunk_offset) ? 
+                SegmentPosition<T>{T{}, true, _chunk_offset} : 
+                SegmentPosition<T>{_segment.get(_chunk_offset), false, _chunk_offset};
+    }
+
+   private:
+    const SegmentType& _segment;
+    ChunkOffset   _chunk_offset; // Row index (just an alias of uint32_t)
+  };
+  */
+
+  template <typename PosListIteratorType>
+  class PointAccessIterator : public AbstractPointAccessSegmentIterator<
+                                  PointAccessIterator<PosListIteratorType>,
+                                  SegmentPosition<T>, PosListIteratorType> {
+   public:
+    // These 2 using declarations are needed from AnySegmentIterable
+    using ValueType = T;
+    using IterableType = GddSegmentV1FixedIterable<T>;
+    
+    PointAccessIterator(const std::shared_ptr<SegmentType> segment_ptr, 
+                        PosListIteratorType position_filter_begin,
+                        PosListIteratorType position_filter_it)
+        : AbstractPointAccessSegmentIterator<PointAccessIterator<PosListIteratorType>, SegmentPosition<T>, PosListIteratorType>
+              {std::move(position_filter_begin), std::move(position_filter_it)},
+              _segment_ptr{segment_ptr}
+        { 
+        }
+
+   private:
+    friend class boost::iterator_core_access;  // grants the boost::iterator_facade access to the private interface
+
+    SegmentPosition<T> dereference() const {
+      const auto& chunk_offsets = this->chunk_offsets();
+
+
+      return _segment_ptr->isnull(chunk_offsets.offset_in_referenced_chunk) ? 
+                SegmentPosition<T>{T{}, true, chunk_offsets.offset_in_poslist} : 
+                SegmentPosition<T>{_segment_ptr->get(chunk_offsets.offset_in_referenced_chunk), false, chunk_offsets.offset_in_poslist};
+    }
+
+   private:
+    const std::shared_ptr<SegmentType> _segment_ptr;
+  };
+ 
+};
+
+/*
 template <typename T>
 class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegmentV1FixedIterable<T>> {
  public:
@@ -149,13 +351,11 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
 
     bool equal(const Iterator& other) const { 
       return _recon_it == other._recon_it; 
-      //return _chunk_offset == other._chunk_offset; 
     }
 
     std::ptrdiff_t distance_to(const Iterator& other) const { return other._recon_it - _recon_it; }
 
     SegmentPosition<T> dereference() const {
-
       const auto base_idx = *(_recon_it);
 
       const auto is_null = (static_cast<ValueID>(base_idx) == _null_value_id);
@@ -226,7 +426,7 @@ class GddSegmentV1FixedIterable : public PointAccessibleSegmentIterable<GddSegme
   };
  
 };
-
+*/
 
 
 template <typename T>

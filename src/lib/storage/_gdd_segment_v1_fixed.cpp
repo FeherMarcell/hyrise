@@ -36,35 +36,24 @@ namespace gdd_helpers {
 }
 
 template <typename T, typename U>
-GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const compact::vector<T, base_bits>& _bases,
-                            const std::vector<uint8_t>& _deviations,
-                            const std::shared_ptr<const ReconListType>& _reconstruction_list_ptr,
+GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const std::shared_ptr<const BasesType>& _bases,
+                            const std::shared_ptr<const DeviationsType>& _deviations,
+                            const std::shared_ptr<const ReconListType>& _reconstruction_list,
                             const T& segment_min, const T& segment_max, const size_t num_nulls) 
       : BaseGddSegment(data_type_from_type<T>()),
       bases{_bases},
       deviations{_deviations},
-      reconstruction_list{_reconstruction_list_ptr},
+      reconstruction_list{_reconstruction_list},
       segment_min{segment_min},
       segment_max{segment_max},
       num_nulls{num_nulls}
 {
-  // NULL is represented by bases.size() in the reconstruction list. 
+  // NULL is represented by bases->size() in the reconstruction list. 
   // INVALID_VALUE_ID, which is the highest possible number in ValueID::base_type
   // (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a GddSegmentV1Fixed of the max size Chunk::MAX_SIZE, those two values overlap.
-  Assert(bases.size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");
+  Assert(bases->size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");
 }
-
-template <typename T, typename U>
-GddSegmentV1Fixed<T, U>::GddSegmentV1Fixed(const GddSegmentV1Fixed& other) 
-      : BaseGddSegment(data_type_from_type<T>()),
-      bases(other.bases), 
-      deviations(other.deviations),
-      reconstruction_list(std::make_shared<ReconListType>(*reconstruction_list)),
-      segment_min(other.segment_min),
-      segment_max(other.segment_max),
-      num_nulls(other.num_nulls)
-  { }
 
 
 template <typename T, typename U>
@@ -86,13 +75,13 @@ std::shared_ptr<AbstractSegment> GddSegmentV1Fixed<T, U>::copy_using_allocator(c
   // TODO use allocator
   //std::cout << "GDD Segment - Copy using allocator" << std::endl;
 
-  auto new_bases = bases;
-  auto new_deviations = deviations;
-  auto new_reconstruction_list_ptr = std::make_shared<ReconListType>(*reconstruction_list);
+  auto new_bases = std::make_shared<BasesType>(*bases);
+  auto new_deviations = std::make_shared<DeviationsType>(*deviations);
+  auto new_reconstruction_list = std::make_shared<ReconListType>(*reconstruction_list);
   auto copy = std::make_shared<GddSegmentV1Fixed<T, U>>(
-                                                new_bases, 
-                                                new_deviations, 
-                                                std::move(new_reconstruction_list_ptr),
+                                                std::move(new_bases), 
+                                                std::move(new_deviations), 
+                                                std::move(new_reconstruction_list),
                                                 segment_min,
                                                 segment_max
                                               );
@@ -105,11 +94,11 @@ size_t GddSegmentV1Fixed<T, U>::memory_usage(const MemoryUsageCalculationMode mo
   
   // We will ignore the memory calculation mode and always use the whole data.
 
-  //const size_t bases_size = sizeof(T) * bases.size();
-  const size_t bases_size = bases.bytes();
-  const size_t devs_size = deviations.size(); // deviations are fixed 1 byte each
-  const size_t recon_list_size = reconstruction_list->bytes();
-  const size_t additional = (2 * sizeof(T)) + sizeof(size_t); // min, max, num_nulls
+  //const size_t bases_size = sizeof(T) * bases->size();
+  const size_t bases_size = ceil((bases->size() * base_bits) / 8U);
+  const size_t devs_size = deviations->size(); // deviations are fixed 1 byte each
+  const size_t recon_list_size = ceil((reconstruction_list->size() * reconstruction_list->bits()) / 8U);
+  const size_t additional = 2 * sizeof(T) + sizeof(size_t); // min, max, num_nulls
 
   return bases_size + devs_size + recon_list_size + additional;
 }
@@ -118,7 +107,7 @@ template <typename T, typename U>
 std::string GddSegmentV1Fixed<T, U>::print() const {
   return "GddSegmentV1Fixed"
           "\n Data type: "+std::string(typeid(T).name())+
-          "\n Bases: "+std::to_string(bases.size())+
+          "\n Bases: "+std::to_string(bases->size())+
           "\n Deviations size: 8 bits"
           "\n Range: "+std::to_string(segment_min)+" - "+std::to_string(segment_max)+"\n";
 
@@ -139,7 +128,7 @@ void GddSegmentV1Fixed<T, U>::decompress(std::vector<T>& result) const {
   result.resize(reconstruction_list->size());
   auto chunk_offset = 0U;
   for(const auto& base_idx : *reconstruction_list) {
-    result[chunk_offset] = gdd_lsb::reconstruct_value<T, 8U>(bases[base_idx], deviations[chunk_offset]);
+    result[chunk_offset] = gdd_lsb::reconstruct_value<T, 8U>(bases->at(base_idx), deviations->at(chunk_offset));
     ++chunk_offset;
   }
 }
@@ -148,14 +137,17 @@ void GddSegmentV1Fixed<T, U>::decompress(std::vector<T>& result) const {
 template <typename T, typename U>
 T GddSegmentV1Fixed<T, U>::get(const ChunkOffset& chunk_offset) const {
   DebugAssert(chunk_offset < reconstruction_list->size(), "GddSegmentV1Fixed::get chunkoffset "+std::to_string((size_t)chunk_offset)+" indexes out of reconstruction list, size: "+std::to_string(reconstruction_list->size()));
-  DebugAssert(chunk_offset < deviations.size(), "GddSegmentV1Fixed::get chunkoffset larger than deviations!");
-  DebugAssert(reconstruction_list->at(chunk_offset) < bases.size(), "GddSegmentV1Fixed::get chunkoffset points to NULL!");
+  DebugAssert(chunk_offset < deviations->size(), "GddSegmentV1Fixed::get chunkoffset larger than deviations!");
+  DebugAssert(reconstruction_list->at(chunk_offset) < bases->size(), "GddSegmentV1Fixed::get chunkoffset points to NULL!");
 
-  const auto deviation = deviations[chunk_offset];
+  const auto deviation = deviations->at(chunk_offset);
   const auto base_index = reconstruction_list->at(chunk_offset);
-  const T base = bases[base_index];
-  const T value = gdd_lsb::reconstruct_value<T, 8U>(base, deviation);
-  return value;
+  const T base = bases->at(base_index);
+  return gdd_lsb::reconstruct_value<T, 8U>(base, deviation);
+
+  std::cout << "Gdd get #" << chunk_offset << std::endl;
+
+  //return gdd_lsb::std_bases::get((size_t)chunk_offset, bases, deviations, reconstruction_list);
 }
 
 
@@ -171,9 +163,16 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 
   const auto typed_query_value = boost::get<T>(query_value);
 
-  //std::cout << "GdSegment scan: " << gdd_helpers::predicate_str(condition) << typed_query_value << std::endl;
+  std::cout << "GdSegment scan: " << gdd_helpers::predicate_str(condition) << typed_query_value << std::endl;
   DebugAssert(matches.empty(), "Matches are not empty!");
-  
+  /*
+  if(position_filter){
+    std::cout << " Position filter selecting " << round((position_filter->size() / size()) * 100) << " percent" << std::endl;
+  }
+  else{
+    std::cout << " No position filter" << std::endl;
+  }
+  */
   //const auto t1 = high_resolution_clock::now();
   { // Step 1: early exit based on segment range
     switch(condition) {
@@ -271,14 +270,16 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
 
     // We always need the lower bound (e.g. greater or equal), not upper_bound (strictly greater) 
     // regardless of the operator
-    const auto lower_it = std::lower_bound(bases.cbegin(), bases.cend(), query_value_base);
-    DebugAssert(lower_it != bases.end(), "Base not found! This should have been an early exit!");
+    const auto lower_it = std::lower_bound(bases->cbegin(), bases->cend(), query_value_base);
+    DebugAssert(lower_it != bases->end(), "Base not found! This should have been an early exit!");
     
     //const auto t22 = high_resolution_clock::now();
 
     // Determine if the query value is inside an existing base range, or an empty region
     const bool is_query_base_present = (*lower_it == query_value_base);
-    const size_t query_value_base_idx = std::distance(bases.begin(), lower_it);
+    const size_t query_value_base_idx = std::distance(bases->begin(), lower_it);
+    //std::cout << "Number of bases: " << bases->size() << std::endl;
+    //std::cout << "Query base present: " << (is_query_base_present ? "yes" : "no") << ", base index: " << query_value_base_idx << std::endl;
     //const auto t23 = high_resolution_clock::now();
 
     // Figure out which bases need to be scanned based on the operator and lower bound
@@ -347,7 +348,7 @@ void GddSegmentV1Fixed<T, U>::segment_vs_value_table_scan(
           // Scan the base range
           base_idx_to_scan = query_value_base_idx;
 
-          if(query_value_base_idx == bases.size()-1){
+          if(query_value_base_idx == bases->size()-1){
             // Last base is scanned, nothing after it
             break;
           }
@@ -464,14 +465,22 @@ void GddSegmentV1Fixed<T, U>::segment_between_table_scan(
 
   //const auto matches_before = matches.size();
   DebugAssert(matches.size() == 0, "Matches not empty!");
+  /*
+  if(position_filter){
+    std::cout << " Position filter selecting " << round((position_filter->size() / size()) * 100) << " percent" << std::endl;
+  }
+  else{
+    std::cout << " No position filter" << std::endl;
+  }
+  */
 
   auto typed_left_value = boost::get<T>(left_value);
   auto typed_right_value = boost::get<T>(right_value);
 
-  //std::cout << "GdSegment scan: BETWEEN" << typed_left_value << " AND " << typed_right_value << std::endl;
+  std::cout << "GdSegment scan: BETWEEN" << typed_left_value << " AND " << typed_right_value << std::endl;
 
   //std::cout << "BETWEEN Left value: " << typed_left_value << ", right value: " << typed_right_value << std::endl;
-  //std::cout << reconstruction_list->size() << " values in segment, bases num: " << bases.size() << std::endl;
+  //std::cout << reconstruction_list->size() << " values in segment, bases num: " << bases->size() << std::endl;
   
 
   // Make sure left <= right
@@ -501,18 +510,18 @@ void GddSegmentV1Fixed<T, U>::segment_between_table_scan(
 
     // Left value
     const auto left_value_base = gdd_lsb::make_base<T, deviation_bits>(typed_left_value);
-    const auto left_lower_it = std::lower_bound(bases.cbegin(), bases.cend(), left_value_base);
+    const auto left_lower_it = std::lower_bound(bases->cbegin(), bases->cend(), left_value_base);
     const bool is_left_base_present = (*left_lower_it == left_value_base);
     // Determine base index that has to be scanned
-    const size_t left_base_idx = std::distance(bases.begin(), left_lower_it);
+    const size_t left_base_idx = std::distance(bases->begin(), left_lower_it);
     
 
     // Right value
     const auto right_value_base = gdd_lsb::make_base<T, deviation_bits>(typed_right_value);
-    const auto right_lower_it = std::lower_bound(bases.cbegin(), bases.cend(), right_value_base);
+    const auto right_lower_it = std::lower_bound(bases->cbegin(), bases->cend(), right_value_base);
     const bool is_right_base_present = (*right_lower_it == right_value_base);
     // Determine base index that has to be scanned
-    const size_t right_base_idx = std::distance(bases.begin(), right_lower_it);
+    const size_t right_base_idx = std::distance(bases->begin(), right_lower_it);
 
     // Determine which bases need to be scanned and with what operator
     
@@ -549,7 +558,7 @@ void GddSegmentV1Fixed<T, U>::segment_between_table_scan(
 
       // If there are any base ranges BETWEEN left and right base index, add them
       const size_t start_base_idx = is_left_base_present ? left_base_idx+1 : 0;
-      const size_t end_base_idx = is_right_base_present ? right_base_idx : bases.size();
+      const size_t end_base_idx = is_right_base_present ? right_base_idx : bases->size();
       if(end_base_idx >= start_base_idx){
         //std::cout << "Adding all base indexes from " << start_base_idx << " to " << (end_base_idx-1) << std::endl;
         
@@ -622,7 +631,7 @@ void GddSegmentV1Fixed<T, U>::_scan_base(
 
       // Reconstruct the original value and run comparator
       // (if the base is zero we don't need to reconstruct, just use the deviation directly)
-      const T reconstructed_val = gdd_lsb::reconstruct_value<T, deviation_bits>(bases[base_index], deviations[dev_idx]);
+      const T reconstructed_val = gdd_lsb::reconstruct_value<T, deviation_bits>(bases->at(base_index), deviations->at(dev_idx));
       // Evaluate the predicate
       return predicate_comparator(reconstructed_val, typed_query_value);
     };
@@ -698,7 +707,7 @@ void GddSegmentV1Fixed<T, U>::_scan_base_between(
 
       // Reconstruct the original value and run comparator
       // (if the base is zero we don't need to reconstruct, just use the deviation directly)
-      const T reconstructed_val = gdd_lsb::reconstruct_value<T, deviation_bits>(bases[base_index], deviations[dev_idx]);
+      const T reconstructed_val = gdd_lsb::reconstruct_value<T, deviation_bits>(bases->at(base_index), deviations->at(dev_idx));
       // Evaluate the predicate
       return between_predicate_comparator(reconstructed_val, typed_left_value, typed_right_value);
     };
@@ -750,7 +759,7 @@ void GddSegmentV1Fixed<T, U>::_all_to_matches(
   //if(num_nulls == 0) {
     // ALL values are a match 
     
-    if(position_filter) {
+    if(position_filter){
       matches.reserve(matches.size() + position_filter->size());
       // If a position filter is given, matches are indexes to the position filter, not actual chunk offsets!
       // Basically just add all indexes from 0 -> position_filter->size()
@@ -813,7 +822,7 @@ ChunkOffset GddSegmentV1Fixed<T, U>::size() const {
 template <typename T, typename U>
 ValueID GddSegmentV1Fixed<T, U>::null_value_id() const {
   // Last valid base index + 1
-  return ValueID{static_cast<ValueID::base_type>(bases.size())};
+  return ValueID{static_cast<ValueID::base_type>(bases->size())};
 }
 
 

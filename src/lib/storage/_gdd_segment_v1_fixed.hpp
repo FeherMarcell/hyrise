@@ -27,14 +27,15 @@ public:
   // Fixed 1B deviation
   static constexpr auto deviation_bits = 8U;
   static constexpr auto base_bits = sizeof(T)*8 - deviation_bits;
+  // Both bases and deviations are stored in an std::vector
+  using BasesType = compact::vector<T, base_bits>;
+  using DeviationsType = std::vector<uint8_t>;
   using ReconListType = compact::vector<size_t>;
 
-  explicit GddSegmentV1Fixed(const compact::vector<T, base_bits>& bases,
-                            const std::vector<uint8_t>& deviations,
+  explicit GddSegmentV1Fixed(const std::shared_ptr<const BasesType>& bases,
+                            const std::shared_ptr<const DeviationsType>& deviations,
                             const std::shared_ptr<const ReconListType>& reconstruction_list,
                             const T& segment_min=0, const T& segment_max=0, const size_t num_nulls=0);
-
-  explicit GddSegmentV1Fixed(const GddSegmentV1Fixed& other);
 
   /**
    * @defgroup AbstractSegment interface
@@ -44,7 +45,7 @@ public:
   AllTypeVariant operator[](const ChunkOffset chunk_offset) const final;
   
   std::optional<T> get_typed_value(const ChunkOffset chunk_offset) const {
-    //std::cout << "Gdd get_typed_value #" << chunk_offset << std::endl;
+    std::cout << "Gdd get_typed_value #" << chunk_offset << std::endl;
     // performance critical - not in cpp to help with inlining
     
     // Return nullopt if the value at chunk_offset is a NULL
@@ -131,12 +132,20 @@ public:
     const std::shared_ptr<const AbstractPosList>& position_filter) const;
 
 
+public:
+
+  // Accessors to the internal representation, required by the Iterators
+  std::shared_ptr<const BasesType> get_bases() const { return bases; };
+  std::shared_ptr<const DeviationsType> get_deviations() const { return deviations; }; 
+  std::shared_ptr<const ReconListType> get_reconstruction_list() const { return reconstruction_list;  }; 
+
+
 private:
 
   // GDD bases
-  const compact::vector<T, base_bits> bases; 
+  const std::shared_ptr<const BasesType> bases; 
   // GDD deviations
-  const std::vector<uint8_t> deviations; 
+  const std::shared_ptr<const DeviationsType> deviations; 
   // Which base is used for the ith deviation to reconstruct the original value
   const std::shared_ptr<const ReconListType> reconstruction_list; 
   // Minimum and maximum value that appears in this segment
