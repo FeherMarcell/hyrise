@@ -474,9 +474,9 @@ void Console::out(const std::shared_ptr<const Table>& table, const PrintFlags fl
 // Command functions
 
 // NOLINTNEXTLINE - while this particular method could be made static, others cannot.
-int Console::_exit(const std::string&) { return Console::ReturnCode::Quit; }
+int Console::_exit(const std::string& /*args*/) { return Console::ReturnCode::Quit; }
 
-int Console::_help(const std::string&) {
+int Console::_help(const std::string& /*args*/) {
   auto encoding_options = std::string{"                                                 Encoding options: "};
   encoding_options += boost::algorithm::join(
       encoding_type_to_string.right | boost::adaptors::transformed([](auto it) { return it.first; }), ", ");
@@ -549,7 +549,7 @@ int Console::_generate_tpcc(const std::string& args) {
 
   auto chunk_size = Chunk::DEFAULT_SIZE;
   if (arguments.size() > 1) {
-    chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(1));
+    chunk_size = ChunkOffset{boost::lexical_cast<ChunkOffset::base_type>(arguments.at(1))};
   }
 
   out("Generating all TPCC tables (this might take a while) ...\n");
@@ -574,7 +574,7 @@ int Console::_generate_tpch(const std::string& args) {
 
   auto chunk_size = Chunk::DEFAULT_SIZE;
   if (arguments.size() > 1) {
-    chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(1));
+    chunk_size = ChunkOffset{boost::lexical_cast<ChunkOffset::base_type>(arguments.at(1))};
   }
 
   
@@ -607,7 +607,7 @@ int Console::_generate_tpcds(const std::string& args) {
 
   auto chunk_size = Chunk::DEFAULT_SIZE;
   if (arguments.size() > 1) {
-    chunk_size = boost::lexical_cast<ChunkOffset>(arguments.at(1));
+    chunk_size = ChunkOffset{boost::lexical_cast<ChunkOffset::base_type>(arguments.at(1))};
   }
 
   out("Generating all TPC-DS tables (this might take a while) ...\n");
@@ -1236,7 +1236,7 @@ int Console::_print_transaction_info(const std::string& input) {
   return ReturnCode::Ok;
 }
 
-int Console::_print_current_working_directory(const std::string&) {
+int Console::_print_current_working_directory(const std::string& /*args*/) {
   out(std::filesystem::current_path().string() + "\n");
   return ReturnCode::Ok;
 }
