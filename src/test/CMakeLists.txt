@@ -24,7 +24,8 @@ set(
     #lib/expression/pqp_subquery_expression_test.cpp
     
     lib/memory/segments_using_allocators_test.cpp
-    
+    lib/memory/zero_allocator_test.cpp
+    lib/null_value_test.cpp
     lib/operators/aggregate_sort_test.cpp
     lib/operators/aggregate_test.cpp
     lib/operators/alias_operator_test.cpp
@@ -93,9 +94,37 @@ set(
     lib/storage/table_test.cpp
     lib/storage/value_segment_test.cpp
     lib/tasks/chunk_compression_task_test.cpp
-    
+    lib/utils/check_table_equal_test.cpp
+    lib/utils/column_ids_after_pruning_test.cpp
+    lib/utils/date_utils_test.cpp
+    lib/utils/format_bytes_test.cpp
+    lib/utils/format_duration_test.cpp
+    lib/utils/load_table_test.cpp
+    lib/utils/log_manager_test.cpp
+    lib/utils/lossless_predicate_cast_test.cpp
+    lib/utils/meta_table_manager_test.cpp
+    lib/utils/meta_tables/meta_exec_table_test.cpp
+    lib/utils/meta_tables/meta_log_table_test.cpp
+    lib/utils/meta_tables/meta_mock_table.cpp
+    lib/utils/meta_tables/meta_mock_table.hpp
+    lib/utils/meta_tables/meta_plugins_table_test.cpp
+    lib/utils/meta_tables/meta_settings_table_test.cpp
+    lib/utils/meta_tables/meta_system_utilization_table_test.cpp
+    lib/utils/meta_tables/meta_table_test.cpp
+    lib/utils/mock_setting.cpp
+    lib/utils/mock_setting.hpp
+    lib/utils/plugin_manager_test.cpp
+    lib/utils/plugin_test_utils.cpp
+    lib/utils/plugin_test_utils.hpp
+    lib/utils/setting_test.cpp
+    lib/utils/settings_manager_test.cpp
+    lib/utils/singleton_test.cpp
+    lib/utils/size_estimation_utils_test.cpp
+    lib/utils/string_utils_test.cpp
+    plugins/mvcc_delete_plugin_test.cpp
     testing_assert.cpp
     testing_assert.hpp
+    utils/constraint_test_utils.hpp
 )
 
 
@@ -122,7 +151,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # Configure hyriseTest
 add_executable(hyriseTest ${HYRISE_UNIT_TEST_SOURCES})
-add_dependencies(hyriseTest hyriseTestPlugin hyriseMvccDeletePlugin hyriseTestNonInstantiablePlugin)
+add_dependencies(hyriseTest hyriseSecondTestPlugin hyriseTestPlugin hyriseMvccDeletePlugin hyriseTestNonInstantiablePlugin)
 target_link_libraries(hyriseTest hyrise ${LIBRARIES})
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")

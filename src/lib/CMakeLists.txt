@@ -311,6 +311,7 @@ set(
     lossless_cast.hpp
     lossy_cast.hpp
     memory/boost_default_memory_resource.cpp
+    memory/zero_allocator.hpp
     null_value.hpp
 
     operators/abstract_aggregate_operator.cpp
@@ -609,6 +610,8 @@ set(
     utils/meta_tables/meta_chunks_table.hpp
     utils/meta_tables/meta_columns_table.cpp
     utils/meta_tables/meta_columns_table.hpp
+    utils/meta_tables/meta_exec_table.cpp
+    utils/meta_tables/meta_exec_table.hpp
     utils/meta_tables/meta_log_table.cpp
     utils/meta_tables/meta_log_table.hpp
     utils/meta_tables/meta_plugins_table.cpp
@@ -664,8 +667,8 @@ set(
 
 set(
     LIBRARIES
-    compact_vector
     lz4
+    magic_enum
     sqlparser
     uninitialized_vector
     zstd
@@ -741,6 +744,10 @@ target_link_libraries_system(
     hyrise_impl
 
     ${BOOST_LIBS}
+    compact_vector
+    cpp-btree
+    cxxopts
+    flat-hash-map
     nlohmann_json::nlohmann_json
     robin_map
     SQLite::SQLite3
@@ -794,6 +801,6 @@ target_link_libraries(hyrise INTERFACE hyrise_impl)
 # add a link to the resources/ directory at the root of the build directory).
 add_custom_target(resourceLink
         COMMAND ln -fs ${CMAKE_BINARY_DIR}/../resources ${CMAKE_BINARY_DIR}/
-        )
+)
 
 add_dependencies(hyrise resourceLink)
